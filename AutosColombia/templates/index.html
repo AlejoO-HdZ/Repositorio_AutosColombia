@@ -1,0 +1,156 @@
+<!-- templates/index2.html -->
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sistema Parqueadero "Autos Colombia" - Gestión de Entrada y Salida de Vehículos</title>
+  <link rel="stylesheet" href="/static/estilos.css">
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <h1>Sistema Parqueadero "Autos Colombia"</h1>
+      <h2>Gestión de Entrada y Salida de Vehículos</h2>
+    </header>
+
+    <section class="centered-block" id="consulta-block">
+      <h3>Consultar placa</h3>
+      <div class="form-row">
+        <input id="input-placa" placeholder="Ingrese placa (ej: ABC123)" />
+        <button id="btn-consultar">Consultar</button>
+      </div>
+      <div id="consulta-mensaje" class="mensaje"></div>
+    </section>
+
+    <section class="centered-block" id="registro-vehiculo-block" style="display:none;">
+      <h3>Registrar nuevo vehículo</h3>
+      <div class="form-row">
+        <label>Placa</label>
+        <input id="nuevo-placa" readonly />
+      </div>
+      <div class="form-row">
+        <label>Tipo</label>
+        <select id="nuevo-tipo">
+          <option value="">-- Seleccione --</option>
+          <option>Motocicleta</option>
+          <option>Automovil</option>
+          <option>AutoBus</option>
+          <option>Camioneta</option>
+          <option>Vehiculo de Carga</option>
+          <option>Vehiculo de Transporte</option>
+          <option>Otro tipo Vehiculo</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Color</label>
+        <input id="nuevo-color" />
+      </div>
+      <div class="form-row">
+        <label>Marca</label>
+        <input id="nuevo-marca" />
+      </div>
+
+      <!-- Novedad opcional al crear y registrar entrada -->
+      <div class="form-row">
+        <label>Tipo novedad (opcional)</label>
+        <select id="nuevo-tipo-novedad">
+          <option value="">-- Ninguna --</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Descripción novedad</label>
+        <textarea id="nuevo-descripcion-novedad" rows="2"></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button id="btn-crear-vehiculo">Crear y Registrar Entrada</button>
+        <button class="btn-secondary" id="btn-volver-1">Volver</button>
+      </div>
+      <div id="crear-mensaje" class="mensaje"></div>
+    </section>
+
+    <section class="centered-block" id="registro-entrada-block" style="display:none;">
+      <h3>Registrar entrada</h3>
+      <div class="info">
+        <p><strong>Placa:</strong> <span id="entrada-placa"></span></p>
+        <p><strong>Tipo:</strong> <span id="entrada-tipo"></span></p>
+      </div>
+
+      <div class="form-row">
+        <label>Tipo novedad (opcional)</label>
+        <select id="entrada-tipo-novedad">
+          <option value="">-- Ninguna --</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Descripción novedad</label>
+        <textarea id="entrada-descripcion-novedad" rows="2"></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button id="btn-registrar-entrada">Registrar Entrada</button>
+        <button class="btn-secondary" id="btn-volver-2">Volver</button>
+      </div>
+      <div id="entrada-mensaje" class="mensaje"></div>
+    </section>
+
+    <section class="centered-block" id="registro-salida-block" style="display:none;">
+      <h3>Registrar salida</h3>
+      <div class="info">
+        <p><strong>Registro ID:</strong> <span id="salida-id"></span></p>
+        <p><strong>Placa:</strong> <span id="salida-placa"></span></p>
+        <p><strong>Hora entrada:</strong> <span id="salida-hora-entrada"></span></p>
+      </div>
+      <div class="form-row">
+        <label>Tipo de novedad (opcional)</label>
+        <select id="salida-tipo-novedad">
+          <option value="">-- Ninguna --</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Descripción (opcional)</label>
+        <textarea id="salida-descripcion" rows="3"></textarea>
+      </div>
+      <div class="form-actions">
+        <button id="btn-registrar-salida">Registrar Salida</button>
+        <button class="btn-secondary" id="btn-volver-3">Volver</button>
+      </div>
+      <div id="salida-mensaje" class="mensaje"></div>
+    </section>
+
+    <section id="estado-parqueadero" class="estado-block">
+      <h3>Estado del parqueadero</h3>
+      <div id="resumen-estadisticas" class="resumen-grid"></div>
+
+      <!-- Nuevo: listado de activos -->
+      <div style="margin-top:12px;">
+        <h4 style="margin:6px 0;color:#374151">Vehículos activos</h4>
+        <div id="lista-activos"></div>
+      </div>
+    </section>
+
+    <section id="historial-block" class="historial-block">
+      <h3>Historial (cronológico)</h3>
+      <table id="tabla-historial">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Placa</th>
+            <th>Tipo</th>
+            <th>Marca</th>
+            <th>Hora entrada</th>
+            <th>Hora salida</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+  </main>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>
