@@ -1,0 +1,254 @@
+/* static/estilos2.css - Completo y actualizado */
+:root{
+  --bg: #f6f8fa;
+  --card: #ffffff;
+  --accent: #2b6cb0;
+  --muted: #6b7280;
+  --text: #0f172a;
+  --success: #16a34a;
+  --warning: #b45309;
+  --danger: #dc2626;
+  --shadow: 0 6px 18px rgba(15,23,42,0.08);
+  --radius: 10px;
+  --max-width: 1100px;
+  --glass: rgba(255,255,255,0.6);
+}
+
+/* Reset y tipografía */
+*{ box-sizing: border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  background: linear-gradient(180deg,#eef2ff 0%, var(--bg) 100%);
+  color: var(--text);
+  padding: 28px 16px;
+  display:flex;
+  justify-content:center;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+
+/* Contenedor principal */
+.container{
+  width:100%;
+  max-width: var(--max-width);
+}
+
+/* Encabezado */
+.header{
+  text-align:center;
+  margin-bottom:18px;
+}
+.header h1{
+  margin:0;
+  font-size:1.6rem;
+  color: var(--accent);
+  letter-spacing:0.2px;
+}
+.header h2{
+  margin:6px 0 0;
+  font-size:1rem;
+  color: var(--muted);
+  font-weight:500;
+}
+
+/* Bloques centrados */
+.centered-block{
+  background: var(--card);
+  padding:16px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom:14px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+}
+
+/* Formularios y filas */
+.form-row{
+  width:100%;
+  max-width:720px;
+  display:flex;
+  gap:10px;
+  margin:8px 0;
+  align-items:center;
+}
+.form-row label{
+  min-width:140px;
+  text-align:left;
+  color: var(--muted);
+  font-size:0.95rem;
+}
+.form-row input,
+.form-row select,
+.form-row textarea{
+  flex:1;
+  padding:10px 12px;
+  border-radius:8px;
+  border:1px solid #e6e9ef;
+  font-size:0.95rem;
+  background:#fff;
+  color:var(--text);
+}
+.form-row textarea{ resize:vertical; min-height:64px; }
+
+/* Botones */
+.form-actions{
+  margin-top:12px;
+  display:flex;
+  gap:10px;
+  justify-content:center;
+  width:100%;
+}
+button{
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding:9px 16px;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:600;
+  transition: transform .08s ease, box-shadow .12s ease, opacity .12s;
+}
+button:hover{ transform: translateY(-2px); box-shadow: 0 8px 20px rgba(43,108,176,0.12); }
+button:active{ transform: translateY(0); }
+button.btn-secondary{
+  background: #eef2ff;
+  color: var(--accent);
+  border: 1px solid rgba(43,108,176,0.12);
+}
+.mensaje{
+  margin-top:8px;
+  color: var(--muted);
+  font-size:0.95rem;
+}
+
+/* Info simple */
+.info p{ margin:6px 0; color:var(--text); font-size:0.95rem; }
+
+/* Estado del parqueadero - no centrado, organizado */
+.estado-block{
+  background: transparent;
+  margin:10px 0 18px;
+}
+.estado-block h3{ margin:0 0 8px 0; color:var(--accent); }
+
+/* Resumen estadístico */
+.resumen-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap:12px;
+  margin-bottom:12px;
+}
+.resumen-card{
+  background: var(--card);
+  padding:12px;
+  border-radius:10px;
+  box-shadow: var(--shadow);
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+}
+.resumen-card h4{ margin:0; font-size:0.95rem; color:var(--muted); }
+.resumen-card p{ margin:6px 0 0; font-size:1.1rem; font-weight:700; }
+
+/* Listado de activos - tarjetas */
+.activos-list{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap:10px;
+  margin-top:8px;
+}
+.activo-card{
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), var(--card));
+  border-radius:10px;
+  padding:10px;
+  box-shadow: var(--shadow);
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  border-left:4px solid rgba(43,108,176,0.12);
+}
+.activo-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.activo-placa{ font-weight:700; color:var(--accent); }
+.activo-tipo{ font-size:0.9rem; color:var(--muted); }
+.activo-hora{ font-size:0.85rem; color:#374151; }
+
+/* Historial */
+.historial-block{
+  margin-top:8px;
+  background: var(--card);
+  padding:12px;
+  border-radius:10px;
+  box-shadow: var(--shadow);
+}
+#tabla-historial{ width:100%; border-collapse:collapse; font-size:0.95rem; }
+#tabla-historial thead th{
+  background:#f8fafc;
+  text-align:left;
+  padding:8px;
+  border-bottom:1px solid #eef2ff;
+  color:var(--muted);
+  font-weight:600;
+  font-size:0.9rem;
+}
+#tabla-historial tbody td{ padding:8px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+.badge{ padding:4px 8px; border-radius:999px; font-size:0.85rem; display:inline-block; }
+.badge.activo{ background:#f0fdf4; color:var(--success); border:1px solid rgba(16,185,129,0.12); }
+.badge.cerrado{ background:#fff7ed; color:var(--warning); border:1px solid rgba(245,158,11,0.12); }
+.btn-accion{ background:#eef2ff; color:var(--accent); padding:6px 8px; border-radius:6px; border:none; cursor:pointer; }
+
+/* Formulario de novedad pequeño */
+.novedad-inline{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  width:100%;
+  max-width:720px;
+}
+.novedad-inline select,
+.novedad-inline input,
+.novedad-inline textarea{ flex:1; }
+
+/* Helpers visuales */
+.form-row input[readonly]{ background:#f8fafc; }
+.small{ font-size:0.85rem; color:var(--muted); }
+
+/* Responsive */
+@media (max-width:920px){
+  .form-row{ max-width:100%; }
+  .resumen-grid{ grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+}
+@media (max-width:720px){
+  .form-row{ flex-direction:column; align-items:stretch; }
+  .form-row label{ min-width:0; }
+  .header h1{ font-size:1.25rem; }
+  .header h2{ font-size:0.95rem; }
+  /* Historial adaptativo tipo tarjetas */
+  #tabla-historial thead{ display:none; }
+  #tabla-historial tbody td{ display:block; width:100%; }
+  #tabla-historial tbody tr{
+    display:block;
+    margin-bottom:10px;
+    background:var(--card);
+    border-radius:8px;
+    box-shadow:var(--shadow);
+    padding:10px;
+  }
+}
+
+/* Accesibilidad y foco */
+input:focus, select:focus, textarea:focus, button:focus{
+  outline: 3px solid rgba(43,108,176,0.12);
+  outline-offset:2px;
+}
+
+/* Pequeños ajustes estéticos */
+h3{ margin:0 0 8px 0; color:var(--accent); }
+h4{ margin:0; color:#374151; }
