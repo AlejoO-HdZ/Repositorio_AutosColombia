@@ -1,4 +1,4 @@
-# base_datos.py
+# MODULO DE CONEXION CON MYSQL-base_datos.py
 import mysql.connector
 from mysql.connector import Error
 from datetime import datetime

@@ -1,3 +1,6 @@
+# CAPA DE LOGICA
+# CONTROLADOR PRINCIPAL (FLASK-CONEXION)
+
 from flask import Flask, render_template, request, jsonify
 from base_Datos import (
     buscar_vehiculo, crear_vehiculo, registrar_entrada,

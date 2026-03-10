@@ -1,4 +1,5 @@
 // static/script.js
+/* CAPA DE PRESENTACION */
 document.addEventListener('DOMContentLoaded', function(){
   const inputPlaca = document.getElementById('input-placa');
   const btnConsultar = document.getElementById('btn-consultar');
