@@ -3,7 +3,6 @@ import mysql.connector
 from mysql.connector import Error
 from datetime import datetime
 from typing import Optional, Tuple, List, Dict
-
 # --- CONFIGURACION entorno MySQL ---
 DB_CONFIG = {
     'host': 'localhost',
@@ -13,7 +12,6 @@ DB_CONFIG = {
     'charset': 'utf8mb4'
 }
 # ------------------------------------------------
-
 def get_connection():
     try:
         conn = mysql.connector.connect(**DB_CONFIG)

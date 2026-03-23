@@ -1,20 +1,16 @@
 # CAPA DE LOGICA
-# CONTROLADOR PRINCIPAL (FLASK-CONEXION)
+# CONTROLADOR PRINCIPAL (FLASK - CONEXION)
 from flask import Flask, render_template, request, jsonify
 import uuid
 import base_Datos
 import usuarios
 import celdas
-
 app = Flask(__name__, static_folder='static', template_folder='templates')
-
 # Inicializar la base de datos
 db=base_Datos
 db.init_db()
-
 # Tokens simples en memoria: token -> user dict
 tokens = {}
-
 def set_token_func(user):
     """Generar y almacenar token en memoria para la sesión."""
     token = str(uuid.uuid4())

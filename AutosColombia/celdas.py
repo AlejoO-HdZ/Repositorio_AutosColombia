@@ -23,7 +23,7 @@ def crear_celda_route():
     Nota: la tabla Celda ahora usa 'descripcion' en lugar de 'codigo' y 'tipo'.
     """
     try:
-        # Si se desea restringir creación a usuarios autenticados, usar require_token aquí.
+        # Restringir creación a usuarios autenticados, usar require_token aquí.
         data = request.json or {}
         descripcion = (data.get('descripcion') or '').strip()
         estado = (data.get('estado') or 'disponible').strip().lower()

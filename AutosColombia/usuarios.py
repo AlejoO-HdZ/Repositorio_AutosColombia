@@ -2,7 +2,7 @@
 from flask import request, jsonify
 import base_Datos
 
-# Estas funciones son asignadas por app.py
+# Funciones son asignadas por app.py
 require_token = None
 set_token = None
 

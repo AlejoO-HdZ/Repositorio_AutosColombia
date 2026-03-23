@@ -1,4 +1,5 @@
 // static/admin.js
+// Gestion Usuarios y Manejo del login
 document.addEventListener('DOMContentLoaded', function () {
   // Elementos del panel de inicio / registro
   const adminNombre = document.getElementById('admin-nombre');
