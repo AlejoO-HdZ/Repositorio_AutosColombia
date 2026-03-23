@@ -1,6 +1,7 @@
 // static/script.js
 /* CAPA DE PRESENTACION */
-document.addEventListener('DOMContentLoaded', function(){
+document.addEventListener('DOMContentLoaded', function () {
+  // Elementos
   const inputPlaca = document.getElementById('input-placa');
   const btnConsultar = document.getElementById('btn-consultar');
   const consultaMensaje = document.getElementById('consulta-mensaje');
@@ -15,342 +16,348 @@ document.addEventListener('DOMContentLoaded', function(){
   const nuevoMarca = document.getElementById('nuevo-marca');
   const btnCrearVehiculo = document.getElementById('btn-crear-vehiculo');
   const crearMensaje = document.getElementById('crear-mensaje');
-  const nuevoTipoNovedad = document.getElementById('nuevo-tipo-novedad');
-  const nuevoDescripcionNovedad = document.getElementById('nuevo-descripcion-novedad');
 
   const entradaPlaca = document.getElementById('entrada-placa');
-  const entradaTipo = document.getElementById('entrada-tipo');
-  const entradaTipoNovedad = document.getElementById('entrada-tipo-novedad');
-  const entradaDescripcionNovedad = document.getElementById('entrada-descripcion-novedad');
+  const entradaNovedad = document.getElementById('entrada-novedad');
   const btnRegistrarEntrada = document.getElementById('btn-registrar-entrada');
   const entradaMensaje = document.getElementById('entrada-mensaje');
+  const entradaCeldaSelect = document.getElementById('entrada-celda-select');
+  const entradaAutoCheckbox = document.getElementById('entrada-auto-checkbox');
 
   const salidaId = document.getElementById('salida-id');
   const salidaPlaca = document.getElementById('salida-placa');
-  const salidaHoraEntrada = document.getElementById('salida-hora-entrada');
-  const salidaTipoNovedad = document.getElementById('salida-tipo-novedad');
   const salidaDescripcion = document.getElementById('salida-descripcion');
   const btnRegistrarSalida = document.getElementById('btn-registrar-salida');
   const salidaMensaje = document.getElementById('salida-mensaje');
+
+  const tablaBody = document.querySelector('#tabla-historial tbody');
+  const tablaHead = document.querySelector('#tabla-historial thead');
+  const resumenEstadisticas = document.getElementById('resumen-estadisticas');
 
   const btnVolver1 = document.getElementById('btn-volver-1');
   const btnVolver2 = document.getElementById('btn-volver-2');
   const btnVolver3 = document.getElementById('btn-volver-3');
 
-  const resumenEstadisticas = document.getElementById('resumen-estadisticas');
-  const tablaHistorialBody = document.querySelector('#tabla-historial tbody');
-  const listaActivos = document.getElementById('lista-activos');
-
-  function resetMensajes(){
-    consultaMensaje.textContent = '';
-    crearMensaje.textContent = '';
-    entradaMensaje.textContent = '';
-    salidaMensaje.textContent = '';
+  function ocultarBloques() {
+    if (registroVehBlock) registroVehBlock.style.display = 'none';
+    if (registroEntradaBlock) registroEntradaBlock.style.display = 'none';
+    if (registroSalidaBlock) registroSalidaBlock.style.display = 'none';
   }
 
-  function ocultarBloques(){
-    registroVehBlock.style.display = 'none';
-    registroEntradaBlock.style.display = 'none';
-    registroSalidaBlock.style.display = 'none';
-  }
-
-  async function cargarHistorial(){
-    const res = await fetch('/api/historial');
-    const data = await res.json();
-    const rows = data.historial || [];
-    tablaHistorialBody.innerHTML = '';
-    let activos = 0;
-    rows.forEach(r => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${r.id}</td>
-        <td>${r.placa}</td>
-        <td>${r.tipo || ''}</td>
-        <td>${r.marca || ''}</td>
-        <td>${r.hora_entrada || ''}</td>
-        <td>${r.hora_salida || ''}</td>
-        <td><span class="badge ${r.estado === 'activo' ? 'activo' : 'cerrado'}">${r.estado}</span></td>
-        <td>
-          ${r.estado === 'activo' ? `<button class="btn-accion" data-id="${r.id}" data-placa="${r.placa}">Registrar salida</button>` : ''}
-        </td>
-      `;
-      tablaHistorialBody.appendChild(tr);
-      if(r.estado === 'activo') activos++;
-    });
-
-    resumenEstadisticas.innerHTML = '';
-    const total = rows.length;
-    resumenEstadisticas.appendChild(crearCard('Vehículos activos', activos));
-    resumenEstadisticas.appendChild(crearCard('Registros totales', total));
-
-    document.querySelectorAll('.btn-accion').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.id;
-        const placa = btn.dataset.placa;
-        abrirBloqueSalida(id, placa);
-      });
+  // Escape simple para evitar inyección en HTML/title
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"'`=\/]/g, function (s) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;' })[s];
     });
   }
 
-  function crearCard(titulo, valor){
-    const div = document.createElement('div');
-    div.className = 'resumen-card';
-    div.innerHTML = `<h4>${titulo}</h4><p>${valor}</p>`;
-    return div;
-  }
+  // Cuando el usuario inicia sesión, la app principal dispara este evento
+  window.addEventListener('user-logged-in', (e) => {
+    cargarHistorial();
+    cargarActivos();
+  });
 
-  // Cargar lista de activos y tipos de novedad
-  async function cargarActivosYTipos(){
-    // activos
-    try{
-      const res = await fetch('/api/activos');
-      const data = await res.json();
-      const activos = data.activos || [];
-      listaActivos.innerHTML = '';
-      if(activos.length === 0){
-        listaActivos.textContent = 'No hay vehículos activos.';
-      } else {
-        const ul = document.createElement('ul');
-        ul.style.listStyle = 'none';
-        ul.style.padding = '0';
-        activos.forEach(a => {
-          const li = document.createElement('li');
-          li.style.padding = '8px';
-          li.style.borderBottom = '1px solid #eef2ff';
-          li.innerHTML = `<strong>${a.placa}</strong> — ${a.tipo || 'N/A'} — ${a.hora_entrada}`;
-          ul.appendChild(li);
-        });
-        listaActivos.appendChild(ul);
-      }
-    }catch(e){
-      listaActivos.textContent = 'Error cargando activos.';
-    }
-
-    // tipos de novedad (llenar selects)
-    try{
-      // usamos la consulta de una placa genérica para obtener tipos (o podríamos crear endpoint específico)
-      const res2 = await fetch('/api/vehiculo/XXX');
-      const data2 = await res2.json();
-      const tipos = data2.tipos_novedad || [];
-      // limpiar y llenar
-      [nuevoTipoNovedad, entradaTipoNovedad, salidaTipoNovedad].forEach(sel => {
-        if(!sel) return;
-        sel.innerHTML = '<option value="">-- Ninguna --</option>';
-        tipos.forEach(t => {
-          const opt = document.createElement('option');
-          opt.value = t.id;
-          opt.textContent = t.nombre;
-          sel.appendChild(opt);
-        });
-      });
-    }catch(e){
-      // si falla, dejamos selects con la opción por defecto
-    }
-  }
-
-  btnConsultar.addEventListener('click', async () => {
-    resetMensajes();
-    ocultarBloques();
-    const placa = (inputPlaca.value || '').trim().toUpperCase();
-    if(!placa){
-      consultaMensaje.textContent = 'Ingrese una placa válida.';
-      return;
-    }
-    consultaMensaje.textContent = 'Consultando...';
-    try{
-      const res = await fetch(`/api/vehiculo/${encodeURIComponent(placa)}`);
-      const data = await res.json();
+  // Consultar placa
+  if (btnConsultar) {
+    btnConsultar.addEventListener('click', async () => {
       consultaMensaje.textContent = '';
-      if(data.vehiculo){
-        const veh = data.vehiculo;
-        const registro = data.registro_activo;
-        if(registro){
-          abrirBloqueSalida(registro.id, placa, registro.hora_entrada, data.tipos_novedad);
-        } else {
-          abrirBloqueEntrada(veh, data.tipos_novedad);
-        }
-      } else {
-        nuevoPlaca.value = placa;
-        registroVehBlock.style.display = 'flex';
-        // llenar tipos de novedad en formulario de creación
-        if(data.tipos_novedad){
-          nuevoTipoNovedad.innerHTML = '<option value="">-- Ninguna --</option>';
-          data.tipos_novedad.forEach(t => {
-            const opt = document.createElement('option');
-            opt.value = t.id;
-            opt.textContent = t.nombre;
-            nuevoTipoNovedad.appendChild(opt);
-          });
-        }
-      }
-    }catch(err){
-      consultaMensaje.textContent = 'Error al consultar. Intente de nuevo.';
-    }
-  });
-
-  btnCrearVehiculo.addEventListener('click', async () => {
-    resetMensajes();
-    const placa = (nuevoPlaca.value || '').trim().toUpperCase();
-    const tipo = (nuevoTipo.value || '').trim();
-    const color = nuevoColor.value || '';
-    const marca = nuevoMarca.value || '';
-    const tipo_novedad = nuevoTipoNovedad.value || null;
-    const descripcion_novedad = nuevoDescripcionNovedad.value || null;
-    if(!placa || !tipo){
-      crearMensaje.textContent = 'Placa y tipo son obligatorios.';
-      return;
-    }
-    crearMensaje.textContent = 'Creando vehículo...';
-    try{
-      const res = await fetch('/api/vehiculo', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({placa, tipo, color, marca})
-      });
-      const data = await res.json();
-      if(!data.ok){
-        crearMensaje.textContent = 'Error: ' + (data.error || 'No se pudo crear');
-        return;
-      }
-      // Registrar entrada con novedad opcional
-      const res2 = await fetch('/api/registro/entrada', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({placa, descripcion: descripcion_novedad, tipo_id: tipo_novedad})
-      });
-      const d2 = await res2.json();
-      if(!d2.ok){
-        crearMensaje.textContent = 'Vehículo creado, pero error al registrar entrada: ' + (d2.error || '');
-        return;
-      }
-      crearMensaje.textContent = 'Vehículo creado y entrada registrada.';
       ocultarBloques();
-      inputPlaca.value = '';
-      await cargarHistorial();
-      await cargarActivosYTipos();
-    }catch(err){
-      crearMensaje.textContent = 'Error en la operación.';
-    }
-  });
-
-  function abrirBloqueEntrada(veh, tiposNovedadServer){
-    ocultarBloques();
-    entradaPlaca.textContent = veh.placa;
-    entradaTipo.textContent = veh.tipo || '';
-    // llenar select de tipos de novedad
-    let tipos = tiposNovedadServer || [];
-    if(!tipos || tipos.length === 0){
-      // intentar obtener desde API
-      fetch(`/api/vehiculo/${encodeURIComponent(veh.placa)}`)
-        .then(r => r.json())
-        .then(d => {
-          tipos = d.tipos_novedad || [];
-          entradaTipoNovedad.innerHTML = '<option value="">-- Ninguna --</option>';
-          tipos.forEach(t => {
-            const opt = document.createElement('option');
-            opt.value = t.id;
-            opt.textContent = t.nombre;
-            entradaTipoNovedad.appendChild(opt);
-          });
-        }).catch(()=>{});
-    } else {
-      entradaTipoNovedad.innerHTML = '<option value="">-- Ninguna --</option>';
-      tipos.forEach(t => {
-        const opt = document.createElement('option');
-        opt.value = t.id;
-        opt.textContent = t.nombre;
-        entradaTipoNovedad.appendChild(opt);
-      });
-    }
-    registroEntradaBlock.style.display = 'flex';
+      const placa = (inputPlaca.value || '').trim().toUpperCase();
+      if (!placa) { consultaMensaje.textContent = 'Ingrese placa'; return; }
+      consultaMensaje.textContent = 'Consultando...';
+      try {
+        const res = await fetch('/api/vehiculo/' + encodeURIComponent(placa));
+        const txt = await res.text(); let data = null; try { data = JSON.parse(txt); } catch (e) { data = null; }
+        if (!res.ok) { consultaMensaje.textContent = (data && data.error) ? data.error : 'Error al consultar'; return; }
+        if (data.vehiculo) {
+          // Vehículo registrado: permitir registrar entrada o novedad
+          entradaPlaca.textContent = placa;
+          entradaNovedad.value = '';
+          // Cargar celdas y preparar selector
+          await cargarCeldasEnSelect();
+          // Por defecto, asignación automática activada
+          if (entradaAutoCheckbox) {
+            entradaAutoCheckbox.checked = true;
+            entradaCeldaSelect.disabled = true;
+          }
+          registroEntradaBlock.style.display = 'block';
+        } else {
+          // No registrado: mostrar formulario de registro
+          nuevoPlaca.value = placa;
+          registroVehBlock.style.display = 'block';
+        }
+      } catch (e) {
+        consultaMensaje.textContent = 'Error de red';
+        console.error('Consultar placa error', e);
+      }
+    });
   }
 
-  btnRegistrarEntrada.addEventListener('click', async () => {
-    resetMensajes();
-    const placa = entradaPlaca.textContent;
-    const tipo_novedad = entradaTipoNovedad.value || null;
-    const descripcion_novedad = entradaDescripcionNovedad.value || null;
-    entradaMensaje.textContent = 'Registrando entrada...';
-    try{
-      const res = await fetch('/api/registro/entrada', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({placa, descripcion: descripcion_novedad, tipo_id: tipo_novedad})
-      });
-      const data = await res.json();
-      if(!data.ok){
-        entradaMensaje.textContent = 'Error: ' + (data.error || '');
+  // Habilitar/deshabilitar select de celda según checkbox
+  if (entradaAutoCheckbox) {
+    entradaAutoCheckbox.addEventListener('change', () => {
+      if (!entradaCeldaSelect) return;
+      entradaCeldaSelect.disabled = entradaAutoCheckbox.checked;
+      if (entradaAutoCheckbox.checked) {
+        entradaCeldaSelect.value = '';
+      }
+    });
+  }
+
+  // Cargar celdas en el select de entrada
+  async function cargarCeldasEnSelect() {
+    if (!entradaCeldaSelect) return;
+    try {
+      const res = await fetch('/api/celdas');
+      const txt = await res.text(); let data = null; try { data = JSON.parse(txt); } catch (e) { data = null; }
+      if (!res.ok) {
+        entradaCeldaSelect.innerHTML = '<option value="">Automático (error al cargar celdas)</option>';
         return;
       }
-      entradaMensaje.textContent = 'Entrada registrada correctamente.';
-      ocultarBloques();
-      inputPlaca.value = '';
-      entradaDescripcionNovedad.value = '';
-      await cargarHistorial();
-      await cargarActivosYTipos();
-    }catch(err){
-      entradaMensaje.textContent = 'Error al registrar entrada.';
+      const celdas = (data && data.celdas) ? data.celdas : [];
+      // Primer opción: automático
+      entradaCeldaSelect.innerHTML = '<option value="">Automático (recomendado)</option>';
+      celdas.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `${c.descripcion} — ${c.estado}`;
+        // Si la celda no está disponible, marcarla como deshabilitada para selección manual
+        if (c.estado !== 'disponible') {
+          opt.disabled = true;
+          opt.textContent += ' (no disponible)';
+        }
+        entradaCeldaSelect.appendChild(opt);
+      });
+    } catch (e) {
+      console.error('cargarCeldasEnSelect error', e);
+      entradaCeldaSelect.innerHTML = '<option value="">Automático (error)</option>';
     }
-  });
+  }
 
-  async function abrirBloqueSalida(id, placa, horaEntrada, tiposNovedadServer){
+  // Crear vehículo y registrar entrada (manejo duplicado)
+  if (btnCrearVehiculo) {
+    btnCrearVehiculo.addEventListener('click', async () => {
+      crearMensaje.textContent = '';
+      const placa = (nuevoPlaca.value || '').trim().toUpperCase();
+      const tipo = (nuevoTipo.value || '').trim();
+      if (!placa || !tipo) { crearMensaje.textContent = 'Placa y tipo obligatorios'; return; }
+      crearMensaje.textContent = 'Creando vehículo...';
+      try {
+        const res = await fetch('/api/vehiculo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ placa, tipo, color: nuevoColor.value, marca: nuevoMarca.value })
+        });
+        const text = await res.text(); let data = null; try { data = JSON.parse(text); } catch (e) { data = null; }
+
+        if (res.status === 409 || (data && data.error === 'vehiculo_existente')) {
+          // Vehículo ya existe: registrar entrada
+          crearMensaje.textContent = 'Vehículo ya existe. Registrando entrada...';
+          const res2 = await fetch('/api/registro/entrada', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ placa, descripcion: null, tipo_id: null, celda_id: null })
+          });
+          const txt2 = await res2.text(); let d2 = null; try { d2 = JSON.parse(txt2); } catch (e) { d2 = null; }
+          if (!res2.ok) { crearMensaje.textContent = 'Error al registrar entrada: ' + ((d2 && d2.error) ? d2.error : txt2); return; }
+          crearMensaje.textContent = 'Entrada registrada para vehículo existente.';
+          ocultarBloques(); inputPlaca.value = ''; await cargarHistorial(); await cargarActivos();
+          return;
+        }
+
+        if (!res.ok) {
+          crearMensaje.textContent = (data && data.error) ? data.error : 'Error al crear vehículo';
+          return;
+        }
+
+        // Vehículo creado -> registrar entrada (automática)
+        crearMensaje.textContent = 'Vehículo creado. Registrando entrada...';
+        const res3 = await fetch('/api/registro/entrada', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ placa, descripcion: null, tipo_id: null, celda_id: null })
+        });
+        const txt3 = await res3.text(); let d3 = null; try { d3 = JSON.parse(txt3); } catch (e) { d3 = null; }
+        if (!res3.ok) { crearMensaje.textContent = 'Veh creado, pero error al registrar entrada: ' + ((d3 && d3.error) ? d3.error : txt3); return; }
+        crearMensaje.textContent = 'Vehículo creado y entrada registrada';
+        ocultarBloques(); inputPlaca.value = ''; await cargarHistorial(); await cargarActivos();
+      } catch (e) {
+        crearMensaje.textContent = 'Error de red';
+        console.error('Crear vehiculo exception', e);
+      }
+    });
+  }
+
+  // Registrar entrada (desde bloque)
+  if (btnRegistrarEntrada) {
+    btnRegistrarEntrada.addEventListener('click', async () => {
+      entradaMensaje.textContent = 'Registrando...';
+      const placa = entradaPlaca.textContent;
+      const descripcion = (entradaNovedad.value || '').trim() || null;
+      // Si auto está marcado, enviar celda_id null para que el backend asigne
+      const auto = entradaAutoCheckbox ? entradaAutoCheckbox.checked : true;
+      const celda_id = (!auto && entradaCeldaSelect && entradaCeldaSelect.value) ? entradaCeldaSelect.value : null;
+      try {
+        const res = await fetch('/api/registro/entrada', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ placa, descripcion, tipo_id: null, celda_id: celda_id })
+        });
+        const txt = await res.text(); let data = null; try { data = JSON.parse(txt); } catch (e) { data = null; }
+        if (!res.ok) { entradaMensaje.textContent = (data && data.error) ? data.error : 'Error al registrar entrada'; return; }
+        entradaMensaje.textContent = 'Entrada registrada';
+        ocultarBloques(); await cargarHistorial(); await cargarActivos();
+      } catch (e) {
+        entradaMensaje.textContent = 'Error de red';
+        console.error('Registrar entrada error', e);
+      }
+    });
+  }
+
+  // Abrir bloque salida
+  function abrirSalida(id, placa) {
     ocultarBloques();
     salidaId.textContent = id;
     salidaPlaca.textContent = placa;
-    salidaHoraEntrada.textContent = horaEntrada || '';
-    let tipos = tiposNovedadServer || [];
-    if(!tipos || tipos.length === 0){
-      const res = await fetch(`/api/vehiculo/${encodeURIComponent(placa)}`);
-      const data = await res.json();
-      tipos = data.tipos_novedad || [];
-    }
-    salidaTipoNovedad.innerHTML = '<option value="">-- Ninguna --</option>';
-    tipos.forEach(t => {
-      const opt = document.createElement('option');
-      opt.value = t.id;
-      opt.textContent = t.nombre;
-      salidaTipoNovedad.appendChild(opt);
-    });
-    registroSalidaBlock.style.display = 'flex';
+    salidaDescripcion.value = '';
+    registroSalidaBlock.style.display = 'block';
   }
 
-  btnRegistrarSalida.addEventListener('click', async () => {
-    resetMensajes();
-    const registro_id = salidaId.textContent;
-    const tipo_id = salidaTipoNovedad.value || null;
-    const descripcion = salidaDescripcion.value || null;
-    salidaMensaje.textContent = 'Registrando salida...';
-    try{
-      const res = await fetch('/api/registro/salida', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({registro_id, tipo_id, descripcion})
-      });
-      const data = await res.json();
-      if(!data.ok){
-        salidaMensaje.textContent = 'Error: ' + (data.error || '');
-        return;
+  // Registrar salida
+  if (btnRegistrarSalida) {
+    btnRegistrarSalida.addEventListener('click', async () => {
+      salidaMensaje.textContent = 'Registrando salida...';
+      const registro_id = salidaId.textContent;
+      const descripcion = (salidaDescripcion.value || '').trim() || null;
+      try {
+        const res = await fetch('/api/registro/salida', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ registro_id, descripcion, tipo_id: null })
+        });
+        const txt = await res.text(); let data = null; try { data = JSON.parse(txt); } catch (e) { data = null; }
+        if (!res.ok) { salidaMensaje.textContent = (data && data.error) ? data.error : 'Error al registrar salida'; return; }
+        salidaMensaje.textContent = 'Salida registrada';
+        ocultarBloques(); await cargarHistorial(); await cargarActivos();
+      } catch (e) {
+        salidaMensaje.textContent = 'Error de red';
+        console.error('Registrar salida error', e);
       }
-      salidaMensaje.textContent = 'Salida registrada correctamente.';
-      ocultarBloques();
-      inputPlaca.value = '';
-      salidaDescripcion.value = '';
-      await cargarHistorial();
-      await cargarActivosYTipos();
-    }catch(err){
-      salidaMensaje.textContent = 'Error al registrar salida.';
-    }
-  });
-
-  [btnVolver1, btnVolver2, btnVolver3].forEach(b => {
-    b.addEventListener('click', () => {
-      ocultarBloques();
-      inputPlaca.value = '';
-      resetMensajes();
     });
-  });
+  }
 
+  // Volver botones
+  [btnVolver1, btnVolver2, btnVolver3].forEach(b => { if (!b) return; b.addEventListener('click', () => { ocultarBloques(); }) });
+
+  // Cargar historial (sin mostrar ID)
+  async function cargarHistorial() {
+    try {
+      const res = await fetch('/api/historial');
+      const txt = await res.text(); let data = null; try { data = JSON.parse(txt); } catch (e) { data = null; }
+      if (!res.ok) { if (tablaBody) tablaBody.innerHTML = '<tr><td colspan="5">Error cargando historial</td></tr>'; return; }
+      const rows = data.historial || [];
+
+      // Ajustar encabezado para no mostrar ID
+      if (tablaHead) {
+        tablaHead.innerHTML = '<tr><th>Placa</th><th>Entrada</th><th>Salida</th><th>Estado</th><th>Acción</th></tr>';
+      }
+
+      if (tablaBody) tablaBody.innerHTML = '';
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        const estadoBadge = `<span class="badge ${r.estado === 'activo' ? 'activo' : 'cerrado'}">${r.estado}</span>`;
+        const accionHtml = r.estado === 'activo' ? `<button class="action-btn" data-id="${r.id}" data-placa="${r.placa}">Registrar salida</button>` : '';
+        tr.innerHTML = `<td>${escapeHtml(r.placa)}</td><td>${escapeHtml(r.hora_entrada || '')}</td><td>${escapeHtml(r.hora_salida || '')}</td><td>${estadoBadge}</td><td>${accionHtml}</td>`;
+        tablaBody.appendChild(tr);
+      });
+      document.querySelectorAll('.action-btn').forEach(btn => btn.addEventListener('click', () => abrirSalida(btn.dataset.id, btn.dataset.placa)));
+
+      // actualizar resumen
+      const activosCount = rows.filter(r => r.estado === 'activo').length;
+      resumenEstadisticas.innerHTML = '';
+      resumenEstadisticas.appendChild(crearCard('Vehículos activos', activosCount));
+      resumenEstadisticas.appendChild(crearCard('Registros totales', rows.length));
+      // también mostrar tabla de activos detallada
+      await renderActivosTable();
+    } catch (e) {
+      console.error('cargarHistorial error', e);
+      if (tablaBody) tablaBody.innerHTML = '<tr><td colspan="5">Error cargando historial</td></tr>';
+    }
+  }
+
+  function crearCard(titulo, valor) {
+    const div = document.createElement('div');
+    div.className = 'resumen-card';
+    div.innerHTML = `<h4>${escapeHtml(titulo)}</h4><p>${escapeHtml(String(valor))}</p>`;
+    return div;
+  }
+
+  // Cargar activos y renderizar tabla con placa, celda asignada, hora entrada, novedad y botón registrar salida
+  async function cargarActivos() {
+    try {
+      const res = await fetch('/api/activos');
+      const txt = await res.text(); let data = null; try { data = JSON.parse(txt); } catch (e) { data = null; }
+      if (!res.ok) { console.error('Error cargarActivos', txt); return; }
+      const activos = data.activos || [];
+      // Obtener celdas para mapear id -> descripcion (por si el backend no trae celda_descripcion)
+      const celdasRes = await fetch('/api/celdas');
+      const celdasTxt = await celdasRes.text(); let celdasData = null; try { celdasData = JSON.parse(celdasTxt); } catch (e) { celdasData = null; }
+      const celdasList = (celdasData && celdasData.celdas) ? celdasData.celdas : [];
+      const celdaMap = {};
+      celdasList.forEach(c => { celdaMap[c.id] = c.descripcion; });
+
+      // Construir tabla de activos dentro un card
+      const existing = document.getElementById('activos-table-card');
+      if (existing) existing.remove();
+
+      const card = document.createElement('div');
+      card.className = 'resumen-card';
+      card.id = 'activos-table-card';
+      card.style.gridColumn = '1 / -1';
+      card.innerHTML = `<h4>Activos</h4>`;
+
+      const table = document.createElement('table');
+      table.style.width = '100%';
+      table.style.borderCollapse = 'collapse';
+      table.innerHTML = `<thead><tr style="background:#f8fafc"><th style="padding:8px;text-align:left">Placa</th><th style="padding:8px;text-align:left">Celda</th><th style="padding:8px;text-align:left">Entrada</th><th style="padding:8px;text-align:left">Novedad</th><th style="padding:8px;text-align:left">Acción</th></tr></thead><tbody></tbody>`;
+      const tbody = table.querySelector('tbody');
+
+      activos.forEach(a => {
+        const tr = document.createElement('tr');
+        const celdaCodigo = a.celda_descripcion || (a.celda_id ? (celdaMap[a.celda_id] || ('#' + a.celda_id)) : 'Sin asignar');
+        // Novedad: si el backend no la incluye, mostramos '-' (puedo actualizar backend para incluirla)
+        const novText = a.novedad || '-';
+        const novHtml = (novText && novText !== '-') ? `<span class="novedad" title="${escapeHtml(novText)}">${escapeHtml(novText)}</span>` : '-';
+        tr.innerHTML = `<td style="padding:8px;border-bottom:1px solid #f1f5f9">${escapeHtml(a.placa)}</td>
+                        <td style="padding:8px;border-bottom:1px solid #f1f5f9">${escapeHtml(celdaCodigo)}</td>
+                        <td style="padding:8px;border-bottom:1px solid #f1f5f9">${escapeHtml(a.hora_entrada || '')}</td>
+                        <td style="padding:8px;border-bottom:1px solid #f1f5f9">${novHtml}</td>
+                        <td style="padding:8px;border-bottom:1px solid #f1f5f9">${a.id ? `<button class="action-btn activo-salida" data-id="${a.id}" data-placa="${escapeHtml(a.placa)}">Registrar salida</button>` : ''}</td>`;
+        tbody.appendChild(tr);
+      });
+
+      card.appendChild(table);
+      resumenEstadisticas.appendChild(card);
+
+      // Attach handlers for salida buttons
+      document.querySelectorAll('.activo-salida').forEach(btn => btn.addEventListener('click', () => abrirSalida(btn.dataset.id, btn.dataset.placa)));
+    } catch (e) {
+      console.error('cargarActivos error', e);
+    }
+  }
+
+  // Renderizar tabla de activos (llama a cargarActivos internamente)
+  async function renderActivosTable() {
+    await cargarActivos();
+  }
+
+  // Inicial
   ocultarBloques();
   cargarHistorial();
-  cargarActivosYTipos();
+  cargarActivos();
+
+  // Exponer funciones para debug o uso externo
+  window.cargarHistorial = cargarHistorial;
+  window.cargarActivos = cargarActivos;
 });

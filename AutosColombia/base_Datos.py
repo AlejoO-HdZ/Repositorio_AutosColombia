@@ -6,10 +6,10 @@ from datetime import datetime
 def get_connection():
     try:
         return mysql.connector.connect(
-        host="localhost", # Entorno Local.
-        user="Usuario000", # Usuario base datos por seguridad se pone una generico.
-        password="Password Generica000", # Contraseña del usuario base datos por seguridad se pone una generica.
-        database="parqueadero" # Nombre de database
+        host="local", # Entorno Local.
+        user="Us000", # Usuario base datos por seguridad se pone una generico.
+        password="Password Gene998989879", # Contraseña del usuario base datos por seguridad se pone una generica.
+        database="parqueadero12232" # Nombre de database random
     )
     except Error as e:
         print("Error de conexión:", e)
