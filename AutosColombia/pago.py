@@ -1,4 +1,4 @@
-# MODULO DE PAGO Y TARIFAS PARA GESTION DE PAGOS
+# MODULO DE PAGO Y TARIFAS PARA GESTION DE PAGOS, pago.py
 from flask import request, jsonify
 import base_Datos as db
 from typing import Optional

@@ -1,6 +1,6 @@
 # MODULO GESTION CELDAS - celdas.py
 from flask import request, jsonify
-import base_Datos
+import base_Datos as base_Datos
 
 require_token = None
 
@@ -20,10 +20,9 @@ def crear_celda_route():
     """
     POST /api/celda
     Body JSON: { descripcion, estado (opcional) }
-    Nota: la tabla Celda ahora usa 'descripcion' en lugar de 'codigo' y 'tipo'.
+    Nota: la tabla Celda usa 'descripcion' como campo principal.
     """
     try:
-        # Restringir creación a usuarios autenticados, usar require_token aquí.
         data = request.json or {}
         descripcion = (data.get('descripcion') or '').strip()
         estado = (data.get('estado') or 'disponible').strip().lower()
@@ -48,7 +47,6 @@ def actualizar_estado_celda_route(celda_id):
     Actualiza el estado de la celda (disponible, ocupada, reservada, bloqueada).
     """
     try:
-        # Opcional: validar token/roles si se requiere
         data = request.json or {}
         estado = (data.get('estado') or '').strip().lower()
         if estado not in ('disponible','ocupada','reservada','bloqueada'):
