@@ -4,171 +4,286 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Parqueadero - Gestión</title>
-    <link rel="stylesheet" href="/static/estilos.css">
+    <title>Parqueadero "Autos Colombia"</title>
+    <link rel="stylesheet" href="/static/estilos.css" />
 </head>
 <body>
-<main class="container">
-    <header class="header">
-        <h1>Parqueadero "Autos Colombia"</h1>
-        <h2>Gestión Usuarios</h2>
-    </header>
-
-    <!-- Panel de inicio (login / registro) -->
-    <aside id="admin-panel" class="centered-block" style="max-width:420px;margin:0 auto 18px;">
-        <h3>Panel de inicio</h3>
-
-        <div id="login-area" class="form-row" style="flex-direction:column;align-items:stretch;">
-            <label>Nombre de usuario</label>
-            <input id="admin-nombre" placeholder="usuario" />
-            <label>Contraseña</label>
-            <input id="admin-password" type="password" />
-            <div class="form-row" style="justify-content:center;margin-top:8px;">
-                <button id="btn-login">Iniciar sesión</button>
-                <button id="btn-show-register" class="btn-secondary">Registrarse</button>
-            </div>
-            <div id="login-mensaje" class="mensaje"></div>
-        </div>
-
-        <div id="register-area" style="display:none;margin-top:12px;width:100%;">
-            <p style="margin:0 0 8px 0;font-weight:700;color:var(--muted)">Crear usuario</p>
+<div class="container">
+    <!-- Login -->
+    <div id="login-root" class="centered-block" style="max-width:520px;margin:18px auto;">
+        <h2>Iniciar sesión</h2>
+        <form id="form-login" onsubmit="return false;">
             <div class="form-row">
-                <label>Nombre</label><input id="reg-nombre" />
+                <label for="login-identifier">Usuario o email</label>
+                <input id="login-identifier" name="identifier" type="text" />
             </div>
             <div class="form-row">
-                <label>Email (opcional)</label><input id="reg-email" />
-            </div>
-            <div class="form-row">
-                <label>Rol</label>
-                <select id="reg-rol">
-                    <option value="operador">Operador</option>
-                    <option value="admin">Admin</option>
-                    <option value="empleado">Empleado</option>
-                </select>
-            </div>
-            <div class="form-row">
-                <label>Password</label><input id="reg-password" type="password" />
+                <label for="login-password">Contraseña</label>
+                <input id="login-password" name="password" type="password" />
             </div>
             <div class="form-actions">
-                <button id="btn-registrar">Crear</button>
-                <button id="btn-cancel-register" class="btn-secondary">Cancelar</button>
+                <button id="btn-login" class="btn-accent" type="button">Iniciar sesión</button>
+                <div id="login-mensaje" class="mensaje"></div>
             </div>
-            <div id="register-mensaje" class="mensaje"></div>
-        </div>
-    </aside>
 
-    <!-- Barra de usuario activo (aparece tras login) -->
-    <div id="active-user-bar" class="centered-block" style="display:none;flex-direction:row;justify-content:space-between;align-items:center;">
-        <div style="display:flex;gap:12px;align-items:center;">
-            <div id="active-username" style="font-weight:700">Usuario</div>
-            <div id="active-role" style="color:var(--muted);font-size:0.95rem;"></div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;">
-            <button id="btn-edit-user" class="action-edit">Editar</button>
-            <button id="btn-delete-user" class="action-delete">Eliminar</button>
-            <button id="btn-logout" class="btn-secondary">Cerrar sesión</button>
-        </div>
+            <!-- Registro rápido -->
+            <div style="margin-top:12px; width:100%; max-width:520px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <strong>¿No tienes cuenta?</strong>
+                    <button id="btn-toggle-register" class="btn-secondary" type="button">Crear cuenta</button>
+                </div>
+                <div id="register-block" style="display:none; border-top:1px solid #eef2ff; padding-top:12px;">
+                    <h3 style="margin:0 0 8px 0;color:var(--accent)">Registrar nuevo usuario</h3>
+                    <form id="form-registrar-usuario" onsubmit="return false;">
+                        <div class="form-row">
+                            <label for="reg-nombre">Nombre</label>
+                            <input id="reg-nombre" type="text" />
+                        </div>
+                        <div class="form-row">
+                            <label for="reg-email">Email (opcional)</label>
+                            <input id="reg-email" type="email" />
+                        </div>
+                        <div class="form-row">
+                            <label for="reg-password">Contraseña</label>
+                            <input id="reg-password" type="password" />
+                        </div>
+                        <div class="form-row">
+                            <label for="reg-rol">Rol</label>
+                            <select id="reg-rol">
+                                <option value="operador">operador</option>
+                                <option value="empleado">empleado</option>
+                                <option value="admin">admin</option>
+                            </select>
+                        </div>
+                        <div class="form-actions" style="justify-content:flex-start;">
+                            <button id="btn-registrar-usuario" class="btn-accent" type="button">Crear usuario</button>
+                            <button id="btn-cancelar-registrar" class="btn-secondary" type="button">Cancelar</button>
+                            <div id="reg-mensaje" class="mensaje" style="margin-left:12px"></div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </form>
     </div>
 
-    <!-- Contenido principal -->
-    <section id="app-main" style="display:none;">
-        <div class="centered-block">
-            <div class="form-row">
-                <label>Consultar placa</label>
-                <input id="input-placa" placeholder="ABC123" />
-                <button id="btn-consultar">Consultar</button>
+    <!-- App -->
+    <div id="app-root" style="display:none;">
+        <!-- Topbar -->
+        <header class="header topbar">
+            <div class="brand">
+                <h1>Parqueadero "Autos Colombia"</h1>
+                <h2>Gestión local de vehículos, Usuarios, Celdas y pagos</h2>
             </div>
-            <div id="consulta-mensaje" class="mensaje"></div>
-        </div>
 
-        <div id="registro-vehiculo-block" class="centered-block" style="display:none;">
-            <h3>Registrar vehículo</h3>
-            <div class="form-row"><label>Placa</label><input id="nuevo-placa" readonly /></div>
-            <div class="form-row">
-                <label>Tipo</label>
-                <select id="nuevo-tipo">
-                    <option>Automovil</option>
-                    <option>Motocicleta</option>
-                    <option>Bicicleta</option>
-                    <option>Otro</option>
-                </select>
+            <div class="user-bar" id="user-bar" aria-live="polite">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div class="welcome-label">Bienvenido : </div>
+                    <div class="welcome" id="welcome-text">operador · Usuario</div>
+                </div>
+
+                <div class="user-actions" style="margin-left:12px">
+                    <button id="btn-editar-perfil" class="action-btn">Editar</button>
+                    <button id="btn-eliminar-cuenta" class="action-btn">Eliminar</button>
+                    <button id="btn-logout" class="action-btn">Cerrar sesión</button>
+                </div>
             </div>
-            <div class="form-row"><label>Color</label><input id="nuevo-color" /></div>
-            <div class="form-row"><label>Marca</label><input id="nuevo-marca" /></div>
-            <div class="form-actions">
-                <button id="btn-crear-vehiculo">Crear y registrar entrada</button>
-                <button id="btn-volver-1" class="btn-secondary">Volver</button>
-            </div>
-            <div id="crear-mensaje" class="mensaje"></div>
-        </div>
+        </header>
 
-        <div id="registro-entrada-block" class="centered-block" style="display:none;">
-            <h3>Registrar entrada</h3>
-            <div class="form-row"><label>Placa</label><div id="entrada-placa" style="font-weight:700"></div></div>
+        <!-- Buscar placa (debajo de cabecera) -->
+        <section class="search-row centered-block">
+            <div style="display:flex;align-items:center;gap:12px">
+                <div style="flex:1;display:flex;align-items:center;gap:10px">
+                    <div style="font-weight:700;color:var(--muted);min-width:90px">Consultar por Placa</div>
+                    <input id="buscar-placa-input" type="text" placeholder="Buscar placa (ej. ABC123)" />
+                </div>
 
-            <!-- Selector de celda: opción automática o selección manual -->
-            <div class="form-row">
-                <label>Asignación de celda</label>
-                <div style="display:flex;gap:8px;align-items:center;">
-                    <select id="entrada-celda-select" style="min-width:220px;">
-                        <option value="">Automático (recomendado)</option>
-                    </select>
-                    <label style="font-size:0.9rem;color:var(--muted);margin:0;">
-                        <input id="entrada-auto-checkbox" type="checkbox" checked /> Asignar automáticamente
-                    </label>
+                <div style="display:flex;gap:8px">
+                    <button id="btn-buscar-placa" class="btn-accent">Buscar</button>
+                    <button id="btn-limpiar-busqueda" class="btn-secondary">Limpiar</button>
                 </div>
             </div>
 
-            <div class="form-row"><label>Novedad (opcional)</label><textarea id="entrada-novedad" placeholder="Descripción..."></textarea></div>
-            <div class="form-actions">
-                <button id="btn-registrar-entrada">Registrar entrada</button>
-                <button id="btn-volver-2" class="btn-secondary">Volver</button>
+            <div id="buscar-placa-result" style="margin-top:10px;color:var(--muted)"></div>
+
+            <!-- CREAR VEHÍCULO (aparece primero si no existe) -->
+            <div id="crear-vehiculo-inline" style="display:none;margin-top:12px;">
+                <h4>Registrar vehículo nuevo</h4>
+                <form id="form-crear-vehiculo-inline" onsubmit="return false;">
+                    <div class="form-row">
+                        <label for="nuevo-placa-inline">Placa</label>
+                        <input id="nuevo-placa-inline" type="text" />
+                    </div>
+                    <div class="form-row">
+                        <label for="nuevo-tipo-inline">Tipo</label>
+                        <select id="nuevo-tipo-inline">
+                            <option value="">Seleccione</option>
+                            <option value="Automovil">Automóvil</option>
+                            <option value="Motocicleta">Motocicleta</option>
+                            <option value="Bicicleta">Bicicleta</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="nuevo-marca-inline">Marca</label>
+                        <input id="nuevo-marca-inline" type="text" placeholder="Ej. Toyota" />
+                    </div>
+                    <div class="form-row">
+                        <label for="nuevo-color-inline">Color</label>
+                        <input id="nuevo-color-inline" type="text" placeholder="Ej. Blanco" />
+                    </div>
+                    <div class="form-actions" style="justify-content:flex-start;">
+                        <button id="btn-crear-vehiculo-inline" class="btn-accent" type="button">Crear vehículo y continuar</button>
+                        <div id="crear-veh-inline-mensaje" class="mensaje"></div>
+                    </div>
+                </form>
             </div>
-            <div id="entrada-mensaje" class="mensaje"></div>
-        </div>
 
-        <div id="registro-salida-block" class="centered-block" style="display:none;">
-            <h3>Registrar salida</h3>
-            <div class="form-row"><label>ID</label><div id="salida-id"></div></div>
-            <div class="form-row"><label>Placa</label><div id="salida-placa"></div></div>
-            <div class="form-row"><label>Novedad (opcional)</label><textarea id="salida-descripcion" placeholder="Descripción..."></textarea></div>
-            <div class="form-actions">
-                <button id="btn-registrar-salida">Registrar salida</button>
-                <button id="btn-volver-3" class="btn-secondary">Volver</button>
+            <!-- Formulario de registrar entrada (se muestra solo después de crear o si vehículo existe) -->
+            <div id="form-entrada-block" style="margin-top:12px;display:none;">
+                <h4>Registrar entrada</h4>
+                <form id="form-registrar-entrada" onsubmit="return false;">
+                    <div class="form-row">
+                        <label for="entrada-placa">Placa</label>
+                        <input id="entrada-placa" type="text" readonly />
+                    </div>
+
+                    <div class="form-row" style="align-items:center;">
+                        <label for="entrada-celda">Asignar celda</label>
+                        <div style="display:flex;gap:8px;align-items:center;width:100%">
+                            <select id="entrada-celda" style="flex:1">
+                                <option value="">(Seleccionar o dejar vacío para asignación automática)</option>
+                            </select>
+                            <label style="display:flex;align-items:center;gap:6px;font-size:0.9rem;color:var(--muted);white-space:nowrap">
+                                <input id="entrada-auto-celda" type="checkbox" style="transform:scale(1.05)" checked />
+                                Asignación automática
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <label for="entrada-tarifa">Tarifa</label>
+                        <select id="entrada-tarifa">
+                            <option value="">(Seleccionar tarifa)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <label for="entrada-descripcion">Descripción / Novedad</label>
+                        <input id="entrada-descripcion" type="text" />
+                    </div>
+
+                    <div class="form-actions">
+                        <button id="btn-registrar-entrada" class="btn-accent" type="button">Registrar entrada</button>
+                        <div id="entrada-mensaje" class="mensaje"></div>
+                    </div>
+                </form>
             </div>
-            <div id="salida-mensaje" class="mensaje"></div>
-        </div>
 
-        <div class="estado-block">
-            <h3>Estado del parqueadero</h3>
-            <div class="resumen-grid" id="resumen-estadisticas"></div>
-        </div>
+        </section>
 
-        <div class="historial-block">
+        <!-- Estado superior: celdas (izq) + tarifas (derecha) -->
+        <section class="status-row">
+            <div class="status-col status-left centered-block">
+                <h3>Estado del Parqueadero</h3>
+                <div id="celdas-list">Cargando celdas...</div>
+            </div>
+
+            <aside class="status-col status-right tarifas-side centered-block">
+                <h3>Tarifas</h3>
+                <div id="tarifas-list">Cargando tarifas...</div>
+
+                <hr style="margin:10px 0" />
+
+                <h4>Crear tarifa</h4>
+                <form id="form-crear-tarifa" style="margin-bottom:8px" onsubmit="return false;">
+                    <div class="form-row">
+                        <label for="tar-nombre">Nombre</label>
+                        <input id="tar-nombre" name="nombre" type="text" class="tar-input-nombre" />
+                    </div>
+                    <div class="form-row">
+                        <label for="tar-tipo">Tipo</label>
+                        <select id="tar-tipo" name="tipo">
+                            <option value="por_hora">Por hora</option>
+                            <option value="fijo">Fijo</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="tar-valor">Valor</label>
+                        <input id="tar-valor" name="valor" type="number" step="0.01" class="tar-input-valor" />
+                    </div>
+                    <div class="form-actions">
+                        <button id="btn-crear-tarifa" class="btn-accent" type="button">Crear tarifa</button>
+                    </div>
+                </form>
+            </aside>
+        </section>
+
+        <!-- Activos (debajo del estado) -->
+        <section id="activos-section" class="centered-block">
+            <h3>Activos</h3>
+            <div id="activos-block"></div>
+        </section>
+
+        <!-- Historial -->
+        <section class="historial-block centered-block">
             <h3>Historial</h3>
-            <table id="tabla-historial">
-                <thead><tr><th>Placa</th><th>Entrada</th><th>Salida</th><th>Estado</th><th>Acción</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </div>
-    </section>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div>
+                    <button id="btn-refrescar-historial" class="btn-accent">Refrescar</button>
+                </div>
+                <div style="font-size:0.9rem;color:#6b7280">Total y lista de pagos por registro incluida</div>
+            </div>
 
-    <!-- Edit user modal (inline) -->
-    <div id="edit-user-modal" class="centered-block" style="display:none;max-width:520px;">
-        <h3>Editar usuario</h3>
-        <div class="form-row"><label>Nombre</label><input id="edit-nombre" /></div>
-        <div class="form-row"><label>Email</label><input id="edit-email" /></div>
-        <div class="form-row"><label>Nuevo password</label><input id="edit-password" type="password" /></div>
-        <div class="form-actions">
-            <button id="btn-guardar-edicion" class="action-edit">Guardar</button>
-            <button id="btn-cancelar-edicion" class="btn-secondary">Cancelar</button>
-        </div>
-        <div id="editar-mensaje" class="mensaje"></div>
+            <div class="table-wrapper">
+                <table id="tabla-historial">
+                    <thead>
+                    <tr>
+                        <th>Placa</th><th>Entrada</th><th>Salida</th><th>Estado</th><th>Precio cobrado</th><th>Pagos</th><th>Acción</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr><td colspan="7">Cargando historial...</td></tr>
+                    </tbody>
+                    <tfoot></tfoot>
+                </table>
+            </div>
+        </section>
+
+        <footer>
+            <div>Aplicación local -EA3 - Parqueadero Colombia</div>
+        </footer>
     </div>
+</div>
 
-</main>
+<!-- Modal de cobro -->
+<div id="cobro-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);align-items:center;justify-content:center;padding:20px;z-index:9999">
+    <div style="background:#fff;border-radius:8px;padding:16px;max-width:520px;width:100%;box-shadow:0 6px 18px rgba(2,6,23,0.2)">
+        <h3>Cobro y salida</h3>
+        <div style="display:flex;gap:12px;flex-direction:column">
+            <div><strong>Registro:</strong> <span id="cobro-registro-id"></span></div>
+            <div><strong>Placa:</strong> <span id="cobro-placa"></span></div>
+            <div><strong>Monto calculado:</strong> <span id="cobro-monto">-</span></div>
+            <div class="form-row">
+                <label for="cobro-metodo">Método</label>
+                <select id="cobro-metodo">
+                    <option value="efectivo">Efectivo</option>
+                    <option value="tarjeta">Tarjeta</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label for="cobro-novedad">Novedad / Observación</label>
+                <input id="cobro-novedad" />
+            </div>
+            <div class="form-actions">
+                <button id="btn-confirmar-cobro" class="btn-salida" type="button">Cobrar y Salida</button>
+                <button id="btn-generar-recibo-modal" class="btn-receipt-soft" type="button">Generar recibo</button>
+                <button id="btn-cancelar-cobro" class="btn-secondary" type="button">Cancelar</button>
+                <div id="cobro-mensaje" class="mensaje"></div>
+            </div>
+        </div>
+    </div>
+</div>
 
-<script src="/static/admin.js"></script>
 <script src="/static/script.js"></script>
 </body>
 </html>

@@ -1,363 +1,690 @@
 // static/script.js
 /* CAPA DE PRESENTACION */
-document.addEventListener('DOMContentLoaded', function () {
-  // Elementos
-  const inputPlaca = document.getElementById('input-placa');
-  const btnConsultar = document.getElementById('btn-consultar');
-  const consultaMensaje = document.getElementById('consulta-mensaje');
+// Versión completa :
+// - Manejo de token en login (si backend devuelve token).
+// - Editar / Eliminar con Authorization si hay token, o con cookies si backend usa sesión.
+// - Asegura clases y bindings para botones Editar/Eliminar/Cerrar.
+// - Limpia mensajes antiguos al abrir modal de cobro y al mostrar formulario de entrada.
+// - Flujo vehículo/entrada robusto.
+// - Gestion listado de tarifas y pagos
 
-  const registroVehBlock = document.getElementById('registro-vehiculo-block');
-  const registroEntradaBlock = document.getElementById('registro-entrada-block');
-  const registroSalidaBlock = document.getElementById('registro-salida-block');
+(function () {
+  'use strict';
 
-  const nuevoPlaca = document.getElementById('nuevo-placa');
-  const nuevoTipo = document.getElementById('nuevo-tipo');
-  const nuevoColor = document.getElementById('nuevo-color');
-  const nuevoMarca = document.getElementById('nuevo-marca');
-  const btnCrearVehiculo = document.getElementById('btn-crear-vehiculo');
-  const crearMensaje = document.getElementById('crear-mensaje');
-
-  const entradaPlaca = document.getElementById('entrada-placa');
-  const entradaNovedad = document.getElementById('entrada-novedad');
-  const btnRegistrarEntrada = document.getElementById('btn-registrar-entrada');
-  const entradaMensaje = document.getElementById('entrada-mensaje');
-  const entradaCeldaSelect = document.getElementById('entrada-celda-select');
-  const entradaAutoCheckbox = document.getElementById('entrada-auto-checkbox');
-
-  const salidaId = document.getElementById('salida-id');
-  const salidaPlaca = document.getElementById('salida-placa');
-  const salidaDescripcion = document.getElementById('salida-descripcion');
-  const btnRegistrarSalida = document.getElementById('btn-registrar-salida');
-  const salidaMensaje = document.getElementById('salida-mensaje');
-
-  const tablaBody = document.querySelector('#tabla-historial tbody');
-  const tablaHead = document.querySelector('#tabla-historial thead');
-  const resumenEstadisticas = document.getElementById('resumen-estadisticas');
-
-  const btnVolver1 = document.getElementById('btn-volver-1');
-  const btnVolver2 = document.getElementById('btn-volver-2');
-  const btnVolver3 = document.getElementById('btn-volver-3');
-
-  function ocultarBloques() {
-    if (registroVehBlock) registroVehBlock.style.display = 'none';
-    if (registroEntradaBlock) registroEntradaBlock.style.display = 'none';
-    if (registroSalidaBlock) registroSalidaBlock.style.display = 'none';
-  }
-
-  // Escape simple para evitar inyección en HTML/title
-  function escapeHtml(str) {
-    if (str === null || str === undefined) return '';
-    return String(str).replace(/[&<>"'`=\/]/g, function (s) {
-      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;' })[s];
+  /* ---------- Helpers DOM ---------- */
+  function qs(sel, root = document) { return (root || document).querySelector(sel); }
+  function qsa(sel, root = document) { return Array.from((root || document).querySelectorAll(sel)); }
+  function el(tag, attrs = {}, children = []) {
+    const e = document.createElement(tag);
+    Object.entries(attrs || {}).forEach(([k, v]) => {
+      if (k === 'text') e.textContent = v;
+      else if (k === 'html') e.innerHTML = v;
+      else e.setAttribute(k, v);
     });
-  }
-
-  // Cuando el usuario inicia sesión, la app principal dispara este evento
-  window.addEventListener('user-logged-in', (e) => {
-    cargarHistorial();
-    cargarActivos();
-  });
-
-  // Consultar placa
-  if (btnConsultar) {
-    btnConsultar.addEventListener('click', async () => {
-      consultaMensaje.textContent = '';
-      ocultarBloques();
-      const placa = (inputPlaca.value || '').trim().toUpperCase();
-      if (!placa) { consultaMensaje.textContent = 'Ingrese placa'; return; }
-      consultaMensaje.textContent = 'Consultando...';
-      try {
-        const res = await fetch('/api/vehiculo/' + encodeURIComponent(placa));
-        const txt = await res.text(); let data = null; try { data = JSON.parse(txt); } catch (e) { data = null; }
-        if (!res.ok) { consultaMensaje.textContent = (data && data.error) ? data.error : 'Error al consultar'; return; }
-        if (data.vehiculo) {
-          // Vehículo registrado: permitir registrar entrada o novedad
-          entradaPlaca.textContent = placa;
-          entradaNovedad.value = '';
-          // Cargar celdas y preparar selector
-          await cargarCeldasEnSelect();
-          // Por defecto, asignación automática activada
-          if (entradaAutoCheckbox) {
-            entradaAutoCheckbox.checked = true;
-            entradaCeldaSelect.disabled = true;
-          }
-          registroEntradaBlock.style.display = 'block';
-        } else {
-          // No registrado: mostrar formulario de registro
-          nuevoPlaca.value = placa;
-          registroVehBlock.style.display = 'block';
-        }
-      } catch (e) {
-        consultaMensaje.textContent = 'Error de red';
-        console.error('Consultar placa error', e);
-      }
+    (Array.isArray(children) ? children : [children]).forEach(c => {
+      if (!c) return;
+      if (typeof c === 'string') e.appendChild(document.createTextNode(c));
+      else e.appendChild(c);
     });
+    return e;
   }
 
-  // Habilitar/deshabilitar select de celda según checkbox
-  if (entradaAutoCheckbox) {
-    entradaAutoCheckbox.addEventListener('change', () => {
-      if (!entradaCeldaSelect) return;
-      entradaCeldaSelect.disabled = entradaAutoCheckbox.checked;
-      if (entradaAutoCheckbox.checked) {
-        entradaCeldaSelect.value = '';
-      }
-    });
-  }
+  /* ---------- Utilities ---------- */
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+  function normPlaca(raw) { return (raw || '').toString().trim().toUpperCase(); }
+  function apiOk(res) { return res && (res.ok === true || res.success === true); }
 
-  // Cargar celdas en el select de entrada
-  async function cargarCeldasEnSelect() {
-    if (!entradaCeldaSelect) return;
+  /* ---------- API fetch wrapper (incluye token si existe) ---------- */
+  window.authToken = null;
+  async function apiFetchJson(path, opts = {}) {
+    const headers = Object.assign({}, opts.headers || {});
+    if (window.authToken) headers['Authorization'] = 'Bearer ' + window.authToken;
+    if (!headers['Content-Type'] && opts.body) headers['Content-Type'] = 'application/json';
     try {
-      const res = await fetch('/api/celdas');
-      const txt = await res.text(); let data = null; try { data = JSON.parse(txt); } catch (e) { data = null; }
-      if (!res.ok) {
-        entradaCeldaSelect.innerHTML = '<option value="">Automático (error al cargar celdas)</option>';
-        return;
-      }
-      const celdas = (data && data.celdas) ? data.celdas : [];
-      // Primer opción: automático
-      entradaCeldaSelect.innerHTML = '<option value="">Automático (recomendado)</option>';
-      celdas.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = `${c.descripcion} — ${c.estado}`;
-        // Si la celda no está disponible, marcarla como deshabilitada para selección manual
-        if (c.estado !== 'disponible') {
-          opt.disabled = true;
-          opt.textContent += ' (no disponible)';
-        }
-        entradaCeldaSelect.appendChild(opt);
-      });
+      const r = await fetch(path, Object.assign({ credentials: 'same-origin' }, opts, { headers }));
+      const text = await r.text();
+      try { return { status: r.status, json: text ? JSON.parse(text) : null }; } catch (e) { return { status: r.status, json: null }; }
     } catch (e) {
-      console.error('cargarCeldasEnSelect error', e);
-      entradaCeldaSelect.innerHTML = '<option value="">Automático (error)</option>';
+      console.error('apiFetchJson error', e);
+      return { status: 0, json: null };
+    }
+  }
+  async function apiGet(path) { const r = await apiFetchJson(path, { method: 'GET' }); return r.json; }
+  async function apiPost(path, body) { const r = await apiFetchJson(path, { method: 'POST', body: JSON.stringify(body || {}) }); return r.json; }
+  async function apiPut(path, body) { const r = await apiFetchJson(path, { method: 'PUT', body: JSON.stringify(body || {}) }); return r.json; }
+  async function apiDelete(path) { const r = await apiFetchJson(path, { method: 'DELETE' }); return r.json; }
+
+  /* ---------- UI helpers ---------- */
+  function showMessage(text, selector = '#login-mensaje') {
+    const elMsg = qs(selector);
+    if (elMsg) elMsg.textContent = text;
+    else console.log('MSG:', text);
+  }
+
+  window.currentUser = null;
+
+  function updateWelcome() {
+    const welcome = qs('#welcome-text');
+    const label = qs('.welcome-label');
+    if (!welcome || !label) return;
+    const u = window.currentUser;
+    if (u) {
+      const nombre = u.nombre || u.name || u.email || 'Usuario';
+      const rol = (u.rol || u.role || 'operador').toString();
+      label.textContent = 'Bienvenido';
+      label.style.fontWeight = '700';
+      label.style.color = 'var(--accent)';
+      welcome.textContent = `${rol} · ${nombre}`;
+      welcome.style.fontWeight = '700';
+      welcome.style.color = 'var(--accent)';
+    } else {
+      label.textContent = 'Bienvenido';
+      welcome.textContent = 'operador · Usuario';
     }
   }
 
-  // Crear vehículo y registrar entrada (manejo duplicado)
-  if (btnCrearVehiculo) {
-    btnCrearVehiculo.addEventListener('click', async () => {
-      crearMensaje.textContent = '';
-      const placa = (nuevoPlaca.value || '').trim().toUpperCase();
-      const tipo = (nuevoTipo.value || '').trim();
-      if (!placa || !tipo) { crearMensaje.textContent = 'Placa y tipo obligatorios'; return; }
-      crearMensaje.textContent = 'Creando vehículo...';
-      try {
-        const res = await fetch('/api/vehiculo', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ placa, tipo, color: nuevoColor.value, marca: nuevoMarca.value })
-        });
-        const text = await res.text(); let data = null; try { data = JSON.parse(text); } catch (e) { data = null; }
-
-        if (res.status === 409 || (data && data.error === 'vehiculo_existente')) {
-          // Vehículo ya existe: registrar entrada
-          crearMensaje.textContent = 'Vehículo ya existe. Registrando entrada...';
-          const res2 = await fetch('/api/registro/entrada', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ placa, descripcion: null, tipo_id: null, celda_id: null })
+  /* ---------- Cargas (tarifas, celdas, activos, historial) ---------- */
+  async function cargarCeldas() {
+    try {
+      const data = await apiGet('/api/celdas');
+      const sel = qs('#entrada-celda');
+      const list = qs('#celdas-list');
+      if (sel) {
+        sel.innerHTML = '<option value="">(Seleccionar o dejar vacío para asignación automática)</option>';
+        if (data && Array.isArray(data.celdas)) {
+          data.celdas.filter(c => c.estado === 'disponible').forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = `#${c.id} ${c.descripcion || ''}`;
+            sel.appendChild(opt);
           });
-          const txt2 = await res2.text(); let d2 = null; try { d2 = JSON.parse(txt2); } catch (e) { d2 = null; }
-          if (!res2.ok) { crearMensaje.textContent = 'Error al registrar entrada: ' + ((d2 && d2.error) ? d2.error : txt2); return; }
-          crearMensaje.textContent = 'Entrada registrada para vehículo existente.';
-          ocultarBloques(); inputPlaca.value = ''; await cargarHistorial(); await cargarActivos();
-          return;
         }
-
-        if (!res.ok) {
-          crearMensaje.textContent = (data && data.error) ? data.error : 'Error al crear vehículo';
-          return;
+      }
+      if (list) {
+        if (!data || !Array.isArray(data.celdas)) list.innerHTML = '<div>No hay celdas</div>';
+        else {
+          const estados = { disponible:0, ocupada:0, reservada:0, bloqueada:0 };
+          data.celdas.forEach(c => { if (c.estado && estados.hasOwnProperty(c.estado)) estados[c.estado]++; });
+          list.innerHTML = `<div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="resumen-card"><h4>Disponibles</h4><p style="color:#0f5132">${estados.disponible}</p></div>
+            <div class="resumen-card"><h4>Ocupadas</h4><p style="color:#7c2d12">${estados.ocupada}</p></div>
+            <div class="resumen-card"><h4>Reservadas</h4><p style="color:#0f5132">${estados.reservada}</p></div>
+            <div class="resumen-card"><h4>Bloqueadas</h4><p style="color:#7c2d12">${estados.bloqueada}</p></div>
+          </div>`;
         }
-
-        // Vehículo creado -> registrar entrada (automática)
-        crearMensaje.textContent = 'Vehículo creado. Registrando entrada...';
-        const res3 = await fetch('/api/registro/entrada', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ placa, descripcion: null, tipo_id: null, celda_id: null })
-        });
-        const txt3 = await res3.text(); let d3 = null; try { d3 = JSON.parse(txt3); } catch (e) { d3 = null; }
-        if (!res3.ok) { crearMensaje.textContent = 'Veh creado, pero error al registrar entrada: ' + ((d3 && d3.error) ? d3.error : txt3); return; }
-        crearMensaje.textContent = 'Vehículo creado y entrada registrada';
-        ocultarBloques(); inputPlaca.value = ''; await cargarHistorial(); await cargarActivos();
-      } catch (e) {
-        crearMensaje.textContent = 'Error de red';
-        console.error('Crear vehiculo exception', e);
       }
-    });
+    } catch (e) { console.error('cargarCeldas error', e); }
   }
 
-  // Registrar entrada (desde bloque)
-  if (btnRegistrarEntrada) {
-    btnRegistrarEntrada.addEventListener('click', async () => {
-      entradaMensaje.textContent = 'Registrando...';
-      const placa = entradaPlaca.textContent;
-      const descripcion = (entradaNovedad.value || '').trim() || null;
-      // Si auto está marcado, enviar celda_id null para que el backend asigne
-      const auto = entradaAutoCheckbox ? entradaAutoCheckbox.checked : true;
-      const celda_id = (!auto && entradaCeldaSelect && entradaCeldaSelect.value) ? entradaCeldaSelect.value : null;
-      try {
-        const res = await fetch('/api/registro/entrada', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ placa, descripcion, tipo_id: null, celda_id: celda_id })
-        });
-        const txt = await res.text(); let data = null; try { data = JSON.parse(txt); } catch (e) { data = null; }
-        if (!res.ok) { entradaMensaje.textContent = (data && data.error) ? data.error : 'Error al registrar entrada'; return; }
-        entradaMensaje.textContent = 'Entrada registrada';
-        ocultarBloques(); await cargarHistorial(); await cargarActivos();
-      } catch (e) {
-        entradaMensaje.textContent = 'Error de red';
-        console.error('Registrar entrada error', e);
-      }
-    });
-  }
-
-  // Abrir bloque salida
-  function abrirSalida(id, placa) {
-    ocultarBloques();
-    salidaId.textContent = id;
-    salidaPlaca.textContent = placa;
-    salidaDescripcion.value = '';
-    registroSalidaBlock.style.display = 'block';
-  }
-
-  // Registrar salida
-  if (btnRegistrarSalida) {
-    btnRegistrarSalida.addEventListener('click', async () => {
-      salidaMensaje.textContent = 'Registrando salida...';
-      const registro_id = salidaId.textContent;
-      const descripcion = (salidaDescripcion.value || '').trim() || null;
-      try {
-        const res = await fetch('/api/registro/salida', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ registro_id, descripcion, tipo_id: null })
-        });
-        const txt = await res.text(); let data = null; try { data = JSON.parse(txt); } catch (e) { data = null; }
-        if (!res.ok) { salidaMensaje.textContent = (data && data.error) ? data.error : 'Error al registrar salida'; return; }
-        salidaMensaje.textContent = 'Salida registrada';
-        ocultarBloques(); await cargarHistorial(); await cargarActivos();
-      } catch (e) {
-        salidaMensaje.textContent = 'Error de red';
-        console.error('Registrar salida error', e);
-      }
-    });
-  }
-
-  // Volver botones
-  [btnVolver1, btnVolver2, btnVolver3].forEach(b => { if (!b) return; b.addEventListener('click', () => { ocultarBloques(); }) });
-
-  // Cargar historial (sin mostrar ID)
-  async function cargarHistorial() {
+  async function cargarTarifas() {
     try {
-      const res = await fetch('/api/historial');
-      const txt = await res.text(); let data = null; try { data = JSON.parse(txt); } catch (e) { data = null; }
-      if (!res.ok) { if (tablaBody) tablaBody.innerHTML = '<tr><td colspan="5">Error cargando historial</td></tr>'; return; }
-      const rows = data.historial || [];
-
-      // Ajustar encabezado para no mostrar ID
-      if (tablaHead) {
-        tablaHead.innerHTML = '<tr><th>Placa</th><th>Entrada</th><th>Salida</th><th>Estado</th><th>Acción</th></tr>';
+      const data = await apiGet('/api/tarifas');
+      const sel = qs('#entrada-tarifa');
+      const list = qs('#tarifas-list');
+      if (sel) {
+        sel.innerHTML = '<option value="">(Seleccionar tarifa)</option>';
+        if (data && Array.isArray(data.tarifas)) {
+          data.tarifas.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.id;
+            opt.textContent = `${t.nombre} — ${Number(t.valor).toFixed(2)} (${t.tipo})`;
+            sel.appendChild(opt);
+          });
+        }
       }
-
-      if (tablaBody) tablaBody.innerHTML = '';
-      rows.forEach(r => {
-        const tr = document.createElement('tr');
-        const estadoBadge = `<span class="badge ${r.estado === 'activo' ? 'activo' : 'cerrado'}">${r.estado}</span>`;
-        const accionHtml = r.estado === 'activo' ? `<button class="action-btn" data-id="${r.id}" data-placa="${r.placa}">Registrar salida</button>` : '';
-        tr.innerHTML = `<td>${escapeHtml(r.placa)}</td><td>${escapeHtml(r.hora_entrada || '')}</td><td>${escapeHtml(r.hora_salida || '')}</td><td>${estadoBadge}</td><td>${accionHtml}</td>`;
-        tablaBody.appendChild(tr);
-      });
-      document.querySelectorAll('.action-btn').forEach(btn => btn.addEventListener('click', () => abrirSalida(btn.dataset.id, btn.dataset.placa)));
-
-      // actualizar resumen
-      const activosCount = rows.filter(r => r.estado === 'activo').length;
-      resumenEstadisticas.innerHTML = '';
-      resumenEstadisticas.appendChild(crearCard('Vehículos activos', activosCount));
-      resumenEstadisticas.appendChild(crearCard('Registros totales', rows.length));
-      // también mostrar tabla de activos detallada
-      await renderActivosTable();
-    } catch (e) {
-      console.error('cargarHistorial error', e);
-      if (tablaBody) tablaBody.innerHTML = '<tr><td colspan="5">Error cargando historial</td></tr>';
-    }
+      if (list) {
+        list.innerHTML = '';
+        if (!data || !Array.isArray(data.tarifas)) list.appendChild(el('div', { text: 'No hay tarifas' }));
+        else data.tarifas.forEach(t => {
+          const item = el('div', { class: 'tarifa-item', html: `<div><strong>${t.nombre}</strong><div class="meta">${t.tipo}</div></div><div style="text-align:right"><div class="tarifa-valor">${Number(t.valor).toFixed(2)}</div></div>` });
+          list.appendChild(item);
+        });
+      }
+    } catch (e) { console.error('cargarTarifas error', e); }
   }
 
-  function crearCard(titulo, valor) {
-    const div = document.createElement('div');
-    div.className = 'resumen-card';
-    div.innerHTML = `<h4>${escapeHtml(titulo)}</h4><p>${escapeHtml(String(valor))}</p>`;
-    return div;
-  }
-
-  // Cargar activos y renderizar tabla con placa, celda asignada, hora entrada, novedad y botón registrar salida
   async function cargarActivos() {
     try {
-      const res = await fetch('/api/activos');
-      const txt = await res.text(); let data = null; try { data = JSON.parse(txt); } catch (e) { data = null; }
-      if (!res.ok) { console.error('Error cargarActivos', txt); return; }
-      const activos = data.activos || [];
-      // Obtener celdas para mapear id -> descripcion (por si el backend no trae celda_descripcion)
-      const celdasRes = await fetch('/api/celdas');
-      const celdasTxt = await celdasRes.text(); let celdasData = null; try { celdasData = JSON.parse(celdasTxt); } catch (e) { celdasData = null; }
-      const celdasList = (celdasData && celdasData.celdas) ? celdasData.celdas : [];
-      const celdaMap = {};
-      celdasList.forEach(c => { celdaMap[c.id] = c.descripcion; });
-
-      // Construir tabla de activos dentro un card
-      const existing = document.getElementById('activos-table-card');
-      if (existing) existing.remove();
-
-      const card = document.createElement('div');
-      card.className = 'resumen-card';
-      card.id = 'activos-table-card';
-      card.style.gridColumn = '1 / -1';
-      card.innerHTML = `<h4>Activos</h4>`;
-
-      const table = document.createElement('table');
-      table.style.width = '100%';
-      table.style.borderCollapse = 'collapse';
-      table.innerHTML = `<thead><tr style="background:#f8fafc"><th style="padding:8px;text-align:left">Placa</th><th style="padding:8px;text-align:left">Celda</th><th style="padding:8px;text-align:left">Entrada</th><th style="padding:8px;text-align:left">Novedad</th><th style="padding:8px;text-align:left">Acción</th></tr></thead><tbody></tbody>`;
-      const tbody = table.querySelector('tbody');
-
-      activos.forEach(a => {
-        const tr = document.createElement('tr');
-        const celdaCodigo = a.celda_descripcion || (a.celda_id ? (celdaMap[a.celda_id] || ('#' + a.celda_id)) : 'Sin asignar');
-        // Novedad: si el backend no la incluye, mostramos '-' (puedo actualizar backend para incluirla)
-        const novText = a.novedad || '-';
-        const novHtml = (novText && novText !== '-') ? `<span class="novedad" title="${escapeHtml(novText)}">${escapeHtml(novText)}</span>` : '-';
-        tr.innerHTML = `<td style="padding:8px;border-bottom:1px solid #f1f5f9">${escapeHtml(a.placa)}</td>
-                        <td style="padding:8px;border-bottom:1px solid #f1f5f9">${escapeHtml(celdaCodigo)}</td>
-                        <td style="padding:8px;border-bottom:1px solid #f1f5f9">${escapeHtml(a.hora_entrada || '')}</td>
-                        <td style="padding:8px;border-bottom:1px solid #f1f5f9">${novHtml}</td>
-                        <td style="padding:8px;border-bottom:1px solid #f1f5f9">${a.id ? `<button class="action-btn activo-salida" data-id="${a.id}" data-placa="${escapeHtml(a.placa)}">Registrar salida</button>` : ''}</td>`;
+      const data = await apiGet('/api/activos');
+      const cont = qs('#activos-block');
+      if (!cont) return;
+      cont.innerHTML = '';
+      const activos = (data && data.activos) ? data.activos : [];
+      const table = el('table');
+      const thead = el('thead'); thead.innerHTML = '<tr><th>Placa</th><th>Entrada</th><th>Celda</th><th>Tipo</th><th>Novedad</th><th>Tarifa</th><th>Acción</th></tr>';
+      const tbody = el('tbody');
+      if (activos.length === 0) tbody.innerHTML = '<tr><td colspan="7">No hay vehículos activos</td></tr>';
+      else activos.forEach(a => {
+        const tr = el('tr');
+        tr.appendChild(el('td', { text: a.placa || '' }));
+        tr.appendChild(el('td', { text: a.hora_entrada || '' }));
+        tr.appendChild(el('td', { text: a.celda_descripcion || (a.celda_id ? ('#' + a.celda_id) : 'Sin asignar') }));
+        tr.appendChild(el('td', { text: a.tipo || '' }));
+        tr.appendChild(el('td', { class: 'novedad-cell', text: a.novedad || '-' }));
+        tr.appendChild(el('td', { text: a.tarifa_valor != null ? Number(a.tarifa_valor).toFixed(2) : '-' }));
+        const tdAcc = el('td');
+        const btnCobrar = el('button', { class: 'btn-salida', text: 'Cobrar y Salida' });
+        btnCobrar.addEventListener('click', () => abrirModalCobro(a));
+        tdAcc.appendChild(btnCobrar);
+        tr.appendChild(tdAcc);
         tbody.appendChild(tr);
       });
+      table.appendChild(thead); table.appendChild(tbody);
+      const wrapper = el('div', { class: 'table-wrapper' });
+      wrapper.appendChild(table);
+      cont.appendChild(wrapper);
+    } catch (e) { console.error('cargarActivos error', e); }
+  }
 
-      card.appendChild(table);
-      resumenEstadisticas.appendChild(card);
+  async function cargarHistorial() {
+    try {
+      const data = await apiGet('/api/historial');
+      const tabla = qs('#tabla-historial'); if (!tabla) return;
+      const tbody = tabla.querySelector('tbody'); const thead = tabla.querySelector('thead');
+      tbody.innerHTML = '';
+      thead.innerHTML = '<tr><th>Placa</th><th>Entrada</th><th>Salida</th><th>Estado</th><th>Precio cobrado</th><th>Pagos</th><th>Acción</th></tr>';
+      const rows = (data && data.historial) ? data.historial : [];
+      const pagosAllRes = await apiGet('/api/pagos?limit=1000'); const pagosAll = (pagosAllRes && pagosAllRes.pagos) ? pagosAllRes.pagos : [];
+      const totalRecaudado = pagosAll.reduce((s, p) => s + (parseFloat(p.monto || 0) || 0), 0);
+      for (const r of rows) {
+        const tr = el('tr');
+        tr.appendChild(el('td', { text: r.placa || '' }));
+        tr.appendChild(el('td', { text: r.hora_entrada || '' }));
+        tr.appendChild(el('td', { text: r.hora_salida || '' }));
+        tr.appendChild(el('td', { text: r.estado || '' }));
+        tr.appendChild(el('td', { text: r.tarifa_valor != null ? Number(r.tarifa_valor).toFixed(2) : '-' }));
+        const tdPagos = el('td', { class: 'pagos-cell', text: 'Cargando...' });
+        tr.appendChild(tdPagos);
 
-      // Attach handlers for salida buttons
-      document.querySelectorAll('.activo-salida').forEach(btn => btn.addEventListener('click', () => abrirSalida(btn.dataset.id, btn.dataset.placa)));
+        const tdAcc = el('td');
+        const btnRecibo = el('button', { class: 'btn-receipt-soft', text: 'Generar recibo' });
+        btnRecibo.addEventListener('click', () => {
+          btnRecibo.textContent = 'Generando...';
+          setTimeout(() => btnRecibo.textContent = 'Generar recibo', 900);
+        });
+        tdAcc.appendChild(btnRecibo);
+        tr.appendChild(tdAcc);
+
+        tbody.appendChild(tr);
+
+        (async function (registroId, td) {
+          try {
+            if (r.pagos && Array.isArray(r.pagos)) {
+              if (r.pagos.length === 0) td.textContent = '-';
+              else td.innerHTML = r.pagos.map(p => `${p.fecha} — ${Number(p.monto).toFixed(2)} (${p.metodo||'--'})`).join('<br>');
+              return;
+            }
+            const pagosRes = await apiGet('/api/pago/registro/' + encodeURIComponent(registroId));
+            const pagos = (pagosRes && pagosRes.pagos) ? pagosRes.pagos : [];
+            if (pagos.length === 0) td.textContent = '-';
+            else td.innerHTML = pagos.map(p => `${p.fecha} — ${Number(p.monto).toFixed(2)} (${p.metodo||'--'})`).join('<br>');
+          } catch (e) { td.textContent = '-'; }
+        })(r.id, tdPagos);
+      }
+
+      let tfoot = tabla.querySelector('tfoot'); if (!tfoot) { tfoot = el('tfoot'); tabla.appendChild(tfoot); }
+      tfoot.innerHTML = '';
+      const trTotal = el('tr');
+      const tdLabel = el('td', { text: 'Total recaudado (historial):' }); tdLabel.colSpan = 5; tdLabel.style.textAlign = 'right'; tdLabel.style.fontWeight = '700';
+      trTotal.appendChild(tdLabel);
+      const tdValue = el('td', { text: Number(totalRecaudado).toFixed(2) }); tdValue.colSpan = 2; tdValue.style.fontWeight = '700';
+      trTotal.appendChild(tdValue);
+      tfoot.appendChild(trTotal);
+    } catch (e) { console.error('cargarHistorial error', e); }
+  }
+
+  /* ---------- Cobro modal ---------- */
+  function abrirModalCobro(registro) {
+    const modal = qs('#cobro-modal'); if (!modal) return;
+    // limpiar mensajes previos
+    const cobroMsg = qs('#cobro-mensaje'); if (cobroMsg) cobroMsg.textContent = '';
+    qs('#cobro-registro-id').textContent = registro.id || '';
+    qs('#cobro-placa').textContent = registro.placa || '';
+    qs('#cobro-monto').textContent = 'Calculando...';
+    qs('#cobro-novedad') && (qs('#cobro-novedad').value = '');
+    qs('#cobro-metodo') && (qs('#cobro-metodo').value = 'efectivo');
+    modal.style.display = 'flex';
+    fetch(`/api/registro/${encodeURIComponent(registro.id)}/calcular_monto`)
+      .then(r => r.json())
+      .then(d => {
+        if (d && d.ok && d.monto_calculado != null) qs('#cobro-monto').textContent = Number(d.monto_calculado).toFixed(2);
+        else qs('#cobro-monto').textContent = registro.tarifa_valor != null ? Number(registro.tarifa_valor).toFixed(2) : '-';
+      }).catch(() => {
+        qs('#cobro-monto').textContent = registro.tarifa_valor != null ? Number(registro.tarifa_valor).toFixed(2) : '-';
+      });
+  }
+  function cerrarModalCobro() { const modal = qs('#cobro-modal'); if (!modal) return; modal.style.display = 'none'; }
+
+  async function confirmarCobro() {
+    const registroId = qs('#cobro-registro-id').textContent;
+    const montoText = qs('#cobro-monto').textContent;
+    const metodo = qs('#cobro-metodo').value;
+    const novedad = qs('#cobro-novedad').value || null;
+    const monto = parseFloat((montoText || '').replace(',', '')) || 0;
+    const cobroMsg = qs('#cobro-mensaje');
+    if (cobroMsg) cobroMsg.textContent = '';
+    if (!registroId) return;
+    try {
+      const pagoRes = await apiPost('/api/pago', { registro_id: Number(registroId), monto: monto, metodo: metodo, detalle: novedad });
+      if (!apiOk(pagoRes)) { if (cobroMsg) cobroMsg.textContent = 'Error al crear pago.'; return; }
+      if (novedad) {
+        try { await apiPost('/api/novedad', { registro_id: Number(registroId), descripcion: novedad }); } catch (e) {}
+      }
+      const salidaRes = await apiPost('/api/registro/salida', { registro_id: Number(registroId) });
+      if (!apiOk(salidaRes)) { if (cobroMsg) cobroMsg.textContent = 'Pago registrado pero error al cerrar registro.'; cerrarModalCobro(); await cargarActivos(); await cargarHistorial(); return; }
+      if (cobroMsg) cobroMsg.textContent = 'Cobro y salida registrados correctamente.';
+      setTimeout(() => { cerrarModalCobro(); cargarActivos(); cargarHistorial(); cargarListadoPagos(); }, 600);
+    } catch (e) { console.error('confirmarCobro error', e); if (cobroMsg) cobroMsg.textContent = 'Error interno.'; }
+  }
+
+  /* ---------- Vehículo: crear y entrada ---------- */
+  async function crearVehiculoInlineYContinuar() {
+    const placaEl = qs('#nuevo-placa-inline');
+    const tipoEl = qs('#nuevo-tipo-inline');
+    const marcaEl = qs('#nuevo-marca-inline');
+    const colorEl = qs('#nuevo-color-inline');
+    const msg = qs('#crear-veh-inline-mensaje');
+
+    const placa = normPlaca(placaEl && placaEl.value);
+    const tipo = (tipoEl && tipoEl.value) || '';
+    const marca = (marcaEl && marcaEl.value) || null;
+    const color = (colorEl && colorEl.value) || null;
+
+    if (!placa || !tipo) { if (msg) msg.textContent = 'Placa y tipo requeridos.'; return; }
+    if (msg) msg.textContent = 'Creando vehículo...';
+
+    try {
+      const crear = await apiPost('/api/vehiculo', { placa: placa, tipo: tipo, marca: marca, color: color });
+      if (!apiOk(crear)) {
+        if (msg) msg.textContent = 'Error creando vehículo: ' + (crear && (crear.error || crear.message) ? (crear.error || crear.message) : JSON.stringify(crear));
+        return;
+      }
+
+      // confirmar existencia
+      let confirmado = false;
+      for (let i = 0; i < 6; i++) {
+        const check = await apiGet('/api/vehiculo/' + encodeURIComponent(placa));
+        if (apiOk(check) && check.vehiculo) { confirmado = true; break; }
+        await sleep(400);
+      }
+      if (!confirmado) {
+        if (msg) msg.textContent = 'Vehículo creado pero no confirmado aún. Intenta de nuevo en unos segundos.';
+        return;
+      }
+
+      if (msg) msg.textContent = 'Vehículo creado correctamente. Complete los datos de entrada.';
+      qs('#crear-vehiculo-inline') && (qs('#crear-vehiculo-inline').style.display = 'none');
+      qs('#form-entrada-block') && (qs('#form-entrada-block').style.display = 'block');
+      const entradaPlaca = qs('#entrada-placa'); if (entradaPlaca) entradaPlaca.value = placa;
+      // limpiar mensaje de entrada anterior
+      const entradaMsg = qs('#entrada-mensaje'); if (entradaMsg) entradaMsg.textContent = '';
+      await cargarCeldas(); await cargarTarifas();
+      const tarifaSel = qs('#entrada-tarifa'); if (tarifaSel) tarifaSel.focus();
     } catch (e) {
-      console.error('cargarActivos error', e);
+      console.error('crearVehiculoInlineYContinuar error', e);
+      if (msg) msg.textContent = 'Error interno al crear vehículo.';
     }
   }
 
-  // Renderizar tabla de activos (llama a cargarActivos internamente)
-  async function renderActivosTable() {
-    await cargarActivos();
+  async function registrarEntrada() {
+    const placa = normPlaca(qs('#entrada-placa') && qs('#entrada-placa').value);
+    const descripcion = (qs('#entrada-descripcion') && qs('#entrada-descripcion').value) || null;
+    const celdaId = (qs('#entrada-celda') && qs('#entrada-celda').value) || null;
+    const tarifaId = (qs('#entrada-tarifa') && qs('#entrada-tarifa').value) || null;
+    const autoCelda = qs('#entrada-auto-celda') ? qs('#entrada-auto-celda').checked : true;
+    const msg = qs('#entrada-mensaje');
+
+    if (msg) msg.textContent = '';
+    if (!placa) { if (msg) msg.textContent = 'Placa requerida.'; return; }
+
+    try {
+      const vehCheck = await apiGet('/api/vehiculo/' + encodeURIComponent(placa));
+      if (!apiOk(vehCheck) || !vehCheck.vehiculo) {
+        qs('#crear-vehiculo-inline') && (qs('#crear-vehiculo-inline').style.display = 'block');
+        qs('#nuevo-placa-inline') && (qs('#nuevo-placa-inline').value = placa);
+        if (msg) msg.textContent = 'Vehículo no existe. Cree el vehículo antes de registrar la entrada.';
+        return;
+      }
+    } catch (e) {
+      console.error('verificar vehiculo error', e);
+      if (msg) msg.textContent = 'Error verificando vehículo.';
+      return;
+    }
+
+    const body = { placa: placa, descripcion: descripcion };
+    if (!autoCelda && celdaId) body.celda_id = Number(celdaId);
+    if (tarifaId) body.tarifa_id = Number(tarifaId);
+
+    let attempts = 0;
+    const maxAttempts = 3;
+    while (attempts < maxAttempts) {
+      attempts++;
+      try {
+        const res = await apiPost('/api/registro/entrada', body);
+        if (apiOk(res)) {
+          if (msg) msg.textContent = 'Entrada registrada correctamente.';
+          qs('#form-entrada-block') && (qs('#form-entrada-block').style.display = 'none');
+          await cargarActivos(); await cargarHistorial(); await cargarCeldas();
+          return;
+        } else {
+          const errText = (res && (res.error || res.message)) ? String(res.error || res.message) : JSON.stringify(res);
+          if (errText.includes('1452') || errText.toLowerCase().includes('foreign key') || errText.toLowerCase().includes('registro_ibfk_1')) {
+            if (attempts < maxAttempts) {
+              if (msg) msg.textContent = `Error FK al registrar (intento ${attempts}). Reintentando...`;
+              await sleep(600);
+              continue;
+            } else {
+              if (msg) msg.textContent = 'Error registrando entrada: vehículo no encontrado (FK). Cree el vehículo primero.';
+              return;
+            }
+          } else {
+            if (msg) msg.textContent = 'Error registrando entrada: ' + errText;
+            return;
+          }
+        }
+      } catch (e) {
+        console.error('registrarEntrada error', e);
+        if (attempts < maxAttempts) {
+          if (msg) msg.textContent = `Error interno (intento ${attempts}). Reintentando...`;
+          await sleep(600);
+          continue;
+        } else {
+          if (msg) msg.textContent = 'Error interno al registrar entrada.';
+          return;
+        }
+      }
+    }
   }
 
-  // Inicial
-  ocultarBloques();
-  cargarHistorial();
-  cargarActivos();
+  /* ---------- Buscar placa ---------- */
+  async function buscarPlaca() {
+    const input = qs('#buscar-placa-input'); const result = qs('#buscar-placa-result');
+    if (!input || !result) return;
+    const placa = normPlaca(input.value);
+    qs('#form-entrada-block') && (qs('#form-entrada-block').style.display = 'none');
+    qs('#crear-vehiculo-inline') && (qs('#crear-vehiculo-inline').style.display = 'none');
+    result.textContent = 'Buscando...';
+    if (!placa) { result.textContent = 'Ingrese una placa válida.'; return; }
 
-  // Exponer funciones para debug o uso externo
-  window.cargarHistorial = cargarHistorial;
+    try {
+      const res = await apiGet('/api/vehiculo/' + encodeURIComponent(placa));
+      if (!apiOk(res) || !res.vehiculo) {
+        result.innerHTML = `<div style="color:var(--muted)">Vehículo no encontrado. Complete los datos para registrarlo y luego registrar la entrada.</div>`;
+        qs('#crear-vehiculo-inline') && (qs('#crear-vehiculo-inline').style.display = 'block');
+        qs('#nuevo-placa-inline') && (qs('#nuevo-placa-inline').value = placa);
+        qs('#form-entrada-block') && (qs('#form-entrada-block').style.display = 'none');
+        await cargarCeldas();
+        await cargarTarifas();
+        return;
+      }
+
+      const veh = res.vehiculo || null;
+      const reg = res.registro_activo || null;
+      let html = `<div><strong>Placa:</strong> ${placa}</div>`;
+      if (veh) html += `<div class="meta">Tipo: ${veh.tipo || '-'} · Marca: ${veh.marca || '-'} · Color: ${veh.color || '-'}</div>`;
+      if (reg) {
+        html += `<div style="margin-top:6px"><strong>Registro activo:</strong> Entrada: ${reg.hora_entrada || '-'} · Celda: ${reg.celda_id || '-'}</div>`;
+        result.innerHTML = html;
+        const btnSalida = el('button', { class: 'btn-accent', text: 'Registrar salida' });
+        btnSalida.addEventListener('click', () => abrirModalCobro(reg));
+        result.appendChild(btnSalida);
+      } else {
+        html += `<div style="margin-top:6px;color:var(--muted)">Vehículo registrado y sin registro activo. Puede registrar la entrada.</div>`;
+        result.innerHTML = html;
+        qs('#form-entrada-block') && (qs('#form-entrada-block').style.display = 'block');
+        const entradaPlaca = qs('#entrada-placa'); if (entradaPlaca) entradaPlaca.value = placa;
+        // limpiar mensaje de entrada anterior
+        const entradaMsg = qs('#entrada-mensaje'); if (entradaMsg) entradaMsg.textContent = '';
+        await cargarCeldas();
+        await cargarTarifas();
+      }
+    } catch (e) {
+      console.error('buscarPlaca error', e);
+      result.textContent = 'Error buscando placa.';
+    }
+  }
+
+  /* ---------- Editar / Eliminar usuario (manejo de autorización) ---------- */
+  async function handleEditarPerfil() {
+    const user = window.currentUser;
+    if (!user) { alert('No hay usuario autenticado.'); return; }
+    const id = user.id || user.user_id || null;
+    const currentName = user.nombre || user.name || '';
+    const currentRole = user.rol || user.role || 'operador';
+
+    const nuevoNombre = prompt('Nuevo nombre:', currentName);
+    if (nuevoNombre === null) return;
+    const nuevoRol = prompt('Nuevo rol (operador/empleado/admin):', currentRole);
+    if (nuevoRol === null) return;
+
+    const msgEl = qs('#login-mensaje') || qs('#reg-mensaje');
+    if (msgEl) msgEl.textContent = 'Actualizando usuario...';
+
+    try {
+      let res = null;
+      if (id) {
+        // usar Authorization si existe token, si no, confiar en cookies de sesión
+        const headers = {};
+        if (window.authToken) headers['Authorization'] = 'Bearer ' + window.authToken;
+        const r = await fetch('/api/usuario/' + encodeURIComponent(id), {
+          method: 'PUT',
+          credentials: 'same-origin',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
+          body: JSON.stringify({ nombre: nuevoNombre.trim(), rol: nuevoRol.trim() })
+        });
+        if (r.status === 401 || r.status === 403) { if (msgEl) msgEl.textContent = 'No autorizado.'; alert('No autorizado para editar.'); return; }
+        res = await (r.headers.get('content-type') && r.headers.get('content-type').includes('application/json') ? r.json() : null);
+      } else {
+        res = await apiPost('/api/usuario/update', { nombre: nuevoNombre.trim(), rol: nuevoRol.trim(), email: user.email || null });
+      }
+
+      if (!res) { if (msgEl) msgEl.textContent = 'Error: sin respuesta del servidor.'; alert('No se pudo actualizar: sin respuesta'); return; }
+      if (!apiOk(res)) {
+        const err = res && (res.error || res.message) ? (res.error || res.message) : 'Error actualizando usuario';
+        if (msgEl) msgEl.textContent = err;
+        alert('No se pudo actualizar: ' + err);
+        return;
+      }
+
+      window.currentUser = Object.assign({}, window.currentUser, { nombre: nuevoNombre.trim(), rol: nuevoRol.trim() });
+      updateWelcome();
+      if (msgEl) msgEl.textContent = 'Perfil actualizado.';
+      alert('Perfil actualizado correctamente.');
+    } catch (e) {
+      console.error('handleEditarPerfil error', e);
+      if (msgEl) msgEl.textContent = 'Error interno al actualizar.';
+      alert('Error interno al actualizar perfil.');
+    }
+  }
+
+  async function handleEliminarCuenta() {
+    const user = window.currentUser;
+    if (!user) { alert('No hay usuario autenticado.'); return; }
+    if (!confirm('¿Confirma que desea eliminar su cuenta? Esta acción no se puede deshacer.')) return;
+    const id = user.id || user.user_id || null;
+    const msgEl = qs('#login-mensaje') || qs('#reg-mensaje');
+    if (msgEl) msgEl.textContent = 'Eliminando cuenta...';
+    try {
+      let res = null;
+      if (id) {
+        const headers = {};
+        if (window.authToken) headers['Authorization'] = 'Bearer ' + window.authToken;
+        const r = await fetch('/api/usuario/' + encodeURIComponent(id), {
+          method: 'DELETE',
+          credentials: 'same-origin',
+          headers: headers
+        });
+        if (r.status === 401 || r.status === 403) { if (msgEl) msgEl.textContent = 'No autorizado.'; alert('No autorizado para eliminar.'); return; }
+        res = await (r.headers.get('content-type') && r.headers.get('content-type').includes('application/json') ? r.json() : {});
+      } else {
+        res = await apiPost('/api/usuario/delete', { email: user.email || null, nombre: user.nombre || null });
+      }
+
+      if (!res) { if (msgEl) msgEl.textContent = 'Error: sin respuesta del servidor.'; alert('No se pudo eliminar: sin respuesta'); return; }
+      if (!apiOk(res)) {
+        const err = res && (res.error || res.message) ? (res.error || res.message) : 'Error eliminando cuenta';
+        if (msgEl) msgEl.textContent = err;
+        alert('No se pudo eliminar la cuenta: ' + err);
+        return;
+      }
+
+      window.currentUser = null;
+      window.authToken = null;
+      updateWelcome();
+      hideApp();
+      if (msgEl) msgEl.textContent = 'Cuenta eliminada.';
+      alert('Cuenta eliminada correctamente (si el backend la procesó).');
+    } catch (e) {
+      console.error('handleEliminarCuenta error', e);
+      if (msgEl) msgEl.textContent = 'Error interno al eliminar cuenta.';
+      alert('Error interno al eliminar cuenta.');
+    }
+  }
+
+  /* ---------- Login / registro ---------- */
+  async function handleLogin() {
+    const idEl = qs('#login-identifier'); const pwEl = qs('#login-password'); const msg = qs('#login-mensaje');
+    if (!idEl || !pwEl) return;
+    const identifier = (idEl.value || '').trim(); const password = (pwEl.value || '').trim();
+    if (!identifier || !password) { if (msg) msg.textContent = 'Usuario y contraseña requeridos.'; return; }
+    try {
+      const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ nombre: identifier, password: password }) });
+      const data = await (r.headers.get('content-type') && r.headers.get('content-type').includes('application/json') ? r.json() : null);
+      if (!data || !data.ok) { if (msg) msg.textContent = data && data.error ? data.error : 'Credenciales inválidas'; return; }
+      window.currentUser = data.user || null;
+      if (data.token) window.authToken = data.token;
+      if (msg) msg.textContent = 'Inicio de sesión correcto.';
+      showApp();
+      updateWelcome();
+      await cargarTarifas(); await cargarCeldas(); await cargarActivos(); await cargarHistorial(); await cargarListadoPagos();
+      // asegurar botones de usuario y bindings
+      ensureUserButtons();
+      bindUserButtons();
+    } catch (e) { console.error('login error', e); if (msg) msg.textContent = 'Error interno al iniciar sesión.'; }
+  }
+
+  function logout() {
+    window.currentUser = null; window.authToken = null;
+    hideApp();
+    qs('#login-identifier') && (qs('#login-identifier').value = '');
+    qs('#login-password') && (qs('#login-password').value = '');
+    qs('#login-mensaje') && (qs('#login-mensaje').textContent = 'Sesión cerrada.');
+  }
+
+  async function handleRegistrarUsuario() {
+    const nombre = (qs('#reg-nombre') || {}).value || '';
+    const email = (qs('#reg-email') || {}).value || '';
+    const password = (qs('#reg-password') || {}).value || '';
+    const rol = (qs('#reg-rol') || {}).value || 'operador';
+    const msgEl = qs('#reg-mensaje');
+    if (!nombre || !password) { if (msgEl) msgEl.textContent = 'Nombre y contraseña son obligatorios.'; return; }
+    try {
+      const res = await apiPost('/api/usuario', { nombre: nombre.trim(), email: email.trim() || null, password: password, rol: rol });
+      if (!apiOk(res)) { if (msgEl) msgEl.textContent = res && (res.error || res.message) ? (res.error || res.message) : 'Error creando usuario'; return; }
+      if (msgEl) msgEl.textContent = 'Usuario creado correctamente. Ya puedes iniciar sesión.';
+      qs('#register-block') && (qs('#register-block').style.display = 'none');
+    } catch (e) { console.error('registrar usuario error', e); if (msgEl) msgEl.textContent = 'Error interno al crear usuario.'; }
+  }
+
+  /* ---------- Pagos listado ---------- */
+  async function cargarListadoPagos() {
+    try {
+      const res = await apiGet('/api/pagos?limit=1000');
+      const pagos = (res && res.pagos) ? res.pagos : [];
+      const cont = qs('#pagos-listado'); if (!cont) return;
+      cont.innerHTML = '';
+      if (pagos.length === 0) { cont.appendChild(el('div', { text: 'No hay pagos registrados' })); return; }
+      pagos.forEach(p => {
+        const item = el('div', { class: 'pagos-item', html: `<div><strong>${p.placa || ('Registro ' + p.registro_id)}</strong></div><div class="meta">${p.fecha} · ${Number(p.monto).toFixed(2)} · ${p.metodo || '--'}</div>` });
+        cont.appendChild(item);
+      });
+      const total = pagos.reduce((s, p) => s + (parseFloat(p.monto || 0) || 0), 0);
+      cont.appendChild(el('div', { style: 'margin-top:10px;font-weight:700', text: 'Total pagos: ' + Number(total).toFixed(2) }));
+    } catch (e) { console.error('cargarListadoPagos error', e); }
+  }
+
+  /* ---------- Ensure user buttons classes and binding ---------- */
+  function ensureUserButtons() {
+    const btnEdit = qs('#btn-editar-perfil');
+    const btnDelete = qs('#btn-eliminar-cuenta');
+    const btnLogout = qs('#btn-logout');
+
+    if (btnEdit && !btnEdit.classList.contains('btn-edit-soft')) btnEdit.classList.add('btn-edit-soft');
+    if (btnDelete && !btnDelete.classList.contains('btn-delete-soft')) btnDelete.classList.add('btn-delete-soft');
+    if (btnLogout && !btnLogout.classList.contains('btn-logout-soft')) btnLogout.classList.add('btn-logout-soft');
+  }
+
+  function bindUserButtons() {
+    const btnEdit = qs('#btn-editar-perfil');
+    const btnDelete = qs('#btn-eliminar-cuenta');
+    const btnLogout = qs('#btn-logout');
+
+    if (btnEdit) { btnEdit.removeEventListener('click', handleEditarPerfil); btnEdit.addEventListener('click', handleEditarPerfil); }
+    if (btnDelete) { btnDelete.removeEventListener('click', handleEliminarCuenta); btnDelete.addEventListener('click', handleEliminarCuenta); }
+    if (btnLogout) { btnLogout.removeEventListener('click', logout); btnLogout.addEventListener('click', logout); }
+  }
+
+  /* ---------- Bind events general ---------- */
+  function bindEventos() {
+    qs('#btn-login') && qs('#btn-login').addEventListener('click', handleLogin);
+    qs('#btn-toggle-register') && qs('#btn-toggle-register').addEventListener('click', () => { const r = qs('#register-block'); if (r) r.style.display = r.style.display === 'none' ? 'block' : 'none'; });
+    qs('#btn-cancelar-registrar') && qs('#btn-cancelar-registrar').addEventListener('click', () => { const r = qs('#register-block'); if (r) r.style.display = 'none'; });
+    qs('#btn-registrar-usuario') && qs('#btn-registrar-usuario').addEventListener('click', handleRegistrarUsuario);
+
+    qs('#btn-buscar-placa') && qs('#btn-buscar-placa').addEventListener('click', buscarPlaca);
+    qs('#btn-limpiar-busqueda') && qs('#btn-limpiar-busqueda').addEventListener('click', () => {
+      qs('#buscar-placa-input') && (qs('#buscar-placa-input').value = '');
+      qs('#buscar-placa-result') && (qs('#buscar-placa-result').textContent = '');
+      qs('#form-entrada-block') && (qs('#form-entrada-block').style.display = 'none');
+      qs('#crear-vehiculo-inline') && (qs('#crear-vehiculo-inline').style.display = 'none');
+    });
+
+    qs('#btn-crear-vehiculo-inline') && qs('#btn-crear-vehiculo-inline').addEventListener('click', crearVehiculoInlineYContinuar);
+    qs('#btn-registrar-entrada') && qs('#btn-registrar-entrada').addEventListener('click', registrarEntrada);
+    qs('#btn-crear-tarifa') && qs('#btn-crear-tarifa').addEventListener('click', async () => {
+      const nombre = (qs('#tar-nombre') && qs('#tar-nombre').value) || '';
+      const tipo = (qs('#tar-tipo') && qs('#tar-tipo').value) || 'por_hora';
+      const valor = parseFloat((qs('#tar-valor') && qs('#tar-valor').value) || 0) || 0;
+      try { const d = await apiPost('/api/tarifa', { nombre: nombre, tipo: tipo, valor: valor }); if (!apiOk(d)) { alert('Error creando tarifa: ' + (d && (d.error || d.message) ? (d.error || d.message) : JSON.stringify(d))); return; } await cargarTarifas(); } catch (e) { console.error('crear tarifa error', e); }
+    });
+
+    qs('#btn-refrescar-historial') && qs('#btn-refrescar-historial').addEventListener('click', () => { cargarHistorial(); cargarActivos(); cargarListadoPagos(); });
+    qs('#btn-confirmar-cobro') && qs('#btn-confirmar-cobro').addEventListener('click', confirmarCobro);
+    qs('#btn-cancelar-cobro') && qs('#btn-cancelar-cobro').addEventListener('click', cerrarModalCobro);
+    qs('#btn-generar-recibo-modal') && qs('#btn-generar-recibo-modal').addEventListener('click', () => {
+      const btn = qs('#btn-generar-recibo-modal');
+      btn.textContent = 'Generando...';
+      setTimeout(() => btn.textContent = 'Generar recibo', 900);
+    });
+
+    // asegurar botones de usuario
+    ensureUserButtons();
+    bindUserButtons();
+  }
+
+  /* ---------- Init ---------- */
+  function showApp() {
+    qs('#login-root') && (qs('#login-root').style.display = 'none');
+    qs('#app-root') && (qs('#app-root').style.display = 'block');
+    updateWelcome();
+  }
+  function hideApp() {
+    qs('#login-root') && (qs('#login-root').style.display = 'block');
+    qs('#app-root') && (qs('#app-root').style.display = 'none');
+  }
+
+  function init() {
+    bindEventos();
+    hideApp();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+
+  /* ---------- Expose for debugging ---------- */
   window.cargarActivos = cargarActivos;
-});
+  window.cargarHistorial = cargarHistorial;
+  window.cargarListadoPagos = cargarListadoPagos;
+  window.abrirModalCobro = abrirModalCobro;
+  window.ensureUserButtons = ensureUserButtons;
+  window.bindUserButtons = bindUserButtons;
+
+})();
