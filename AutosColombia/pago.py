@@ -1,3 +1,4 @@
+# CAPA LOGICA DEL SISTEMA
 # MODULO DE PAGO Y TARIFAS PARA GESTION DE PAGOS, pago.py
 from flask import request, jsonify
 import base_Datos as db

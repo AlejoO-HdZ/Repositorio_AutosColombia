@@ -1,3 +1,4 @@
+# CAPA LOGICA DEL SISTEMA
 # MODULO GESTION CELDAS - celdas.py
 from flask import request, jsonify
 import base_Datos as base_Datos

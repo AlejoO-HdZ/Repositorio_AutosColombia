@@ -1,4 +1,5 @@
 // static/admin.js
+/* CAPA DE PRESENTACION */
 // Gestion Usuarios y Manejo del login
 // Gestion de Pagos
 // Ajustes UI adicionales: topbar (bienvenida + acciones), posicionamiento de tarifas,

@@ -1,3 +1,4 @@
+# CAPA LOGICA DEL SISTEMA
 # MODULO GESTION USUARIOS - usuarios.py
 from flask import request, jsonify, make_response
 import base_Datos as db_module
